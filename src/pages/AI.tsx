@@ -4,38 +4,123 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { Bot, ArrowLeft, Send, TrendingUp, PieChart, BarChart3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui/use-toast";
+
+interface ChatMessage {
+  id: string;
+  content: string;
+  isBot: boolean;
+  timestamp: Date;
+}
 
 const AI = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [message, setMessage] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: "1",
+      content: "Olá! 👋",
+      isBot: true,
+      timestamp: new Date(),
+    },
+    {
+      id: "2", 
+      content: "Como posso te ajudar hoje?",
+      isBot: true,
+      timestamp: new Date(),
+    },
+    {
+      id: "3",
+      content: "Sugestão, pergunte sobre: Renda Fixa, Perfis de Investimento ou Cryptomoedas.",
+      isBot: true,
+      timestamp: new Date(),
+    },
+  ]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!message.trim()) return;
     
+    // Adicionar mensagem do usuário
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      content: message,
+      isBot: false,
+      timestamp: new Date(),
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setMessage("");
     setIsAnalyzing(true);
-    // Simular processamento da IA
-    setTimeout(() => {
+
+    try {
+      // Fazer requisição para o webhook da IA
+      const response = await fetch("https://eleefe.app.n8n.cloud/webhook/b2969f0e-74e6-4d26-b97b-c84b6286604c/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: userMessage.content,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro na comunicação com a IA");
+      }
+
+      const aiResponse = await response.text();
+      
+      // Adicionar resposta da IA
+      const botMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        content: aiResponse || "Desculpe, não consegui processar sua pergunta no momento.",
+        isBot: true,
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      console.error("Erro ao enviar mensagem:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível enviar a mensagem. Tente novamente.",
+        variant: "destructive",
+      });
+      
+      // Adicionar mensagem de erro
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        content: "Desculpe, estou com problemas técnicos no momento. Tente novamente mais tarde.",
+        isBot: true,
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsAnalyzing(false);
-      setMessage("");
-    }, 2000);
+    }
   };
 
   const quickActions = [
     {
-      title: "Análise de Gastos",
-      description: "Analise seus padrões de gastos do último mês",
+      title: "Renda Fixa",
+      description: "Pergunte sobre investimentos em renda fixa",
       icon: PieChart,
+      message: "Me explique sobre investimentos em renda fixa",
     },
     {
-      title: "Projeção de Renda",
-      description: "Veja projeções baseadas em seu histórico",
+      title: "Perfis de Investimento",
+      description: "Saiba mais sobre diferentes perfis de investidor",
       icon: TrendingUp,
+      message: "Quais são os perfis de investimento?",
     },
     {
-      title: "Otimização de Investimentos",
-      description: "Receba sugestões para diversificar sua carteira",
+      title: "Cryptomoedas",
+      description: "Entenda sobre investimentos em cryptomoedas",
       icon: BarChart3,
+      message: "Como investir em cryptomoedas?",
     },
   ];
 
@@ -94,14 +179,47 @@ const AI = () => {
               
               <CardContent className="flex-1 flex flex-col">
                 {/* Chat Messages Area */}
-                <div className="flex-1 mb-4 p-4 bg-muted/30 rounded-lg">
-                  <div className="text-center text-muted-foreground">
-                    <Bot className="h-12 w-12 mx-auto mb-4 text-primary" />
-                    <p>Olá! Sou sua assistente financeira IA.</p>
-                    <p className="text-sm mt-2">
-                      Faça perguntas sobre investimentos, gastos, ou use as ações rápidas ao lado.
-                    </p>
-                  </div>
+                <div className="flex-1 mb-4 p-4 bg-muted/30 rounded-lg overflow-y-auto max-h-[450px] space-y-4">
+                  {messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex ${msg.isBot ? 'justify-start' : 'justify-end'}`}
+                    >
+                      <div
+                        className={`max-w-[80%] p-3 rounded-lg ${
+                          msg.isBot
+                            ? 'bg-white border border-border'
+                            : 'bg-primary text-primary-foreground'
+                        }`}
+                      >
+                        {msg.isBot && (
+                          <div className="flex items-center gap-2 mb-1">
+                            <Bot className="h-3 w-3" />
+                            <span className="text-xs font-medium">Assistente IA</span>
+                          </div>
+                        )}
+                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        <span className="text-xs opacity-70 mt-1 block">
+                          {msg.timestamp.toLocaleTimeString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {isAnalyzing && (
+                    <div className="flex justify-start">
+                      <div className="bg-white border border-border p-3 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Bot className="h-3 w-3" />
+                          <span className="text-xs font-medium">Assistente IA</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="animate-spin h-3 w-3 border-2 border-primary border-t-transparent rounded-full" />
+                          <span className="text-sm text-muted-foreground">Analisando...</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Input Area */}
@@ -151,7 +269,7 @@ const AI = () => {
                       key={index}
                       variant="outline"
                       className="w-full h-auto p-4 flex flex-col items-start text-left hover:bg-muted"
-                      onClick={() => setMessage(action.title)}
+                      onClick={() => setMessage(action.message)}
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <Icon className="h-4 w-4 text-primary" />
