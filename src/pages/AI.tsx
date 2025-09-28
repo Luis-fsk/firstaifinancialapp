@@ -1,58 +1,127 @@
-import { useEffect, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Bot, ArrowLeft, TrendingUp, PieChart, BarChart3 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Bot, ArrowLeft, TrendingUp, PieChart, BarChart3, Send, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import "@n8n/chat/style.css";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface Message {
+  id: string;
+  text: string;
+  isUser: boolean;
+  timestamp: Date;
+}
 
 const AI = () => {
   const navigate = useNavigate();
-  const chatRef = useRef<HTMLDivElement>(null);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: "1",
+      text: "Olá! 👋 Como posso te ajudar hoje? Sugestão, pergunte sobre: Renda Fixa, Perfis de Investimento ou Cryptomoedas.",
+      isUser: false,
+      timestamp: new Date()
+    }
+  ]);
+  const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
-    const loadChat = async () => {
-      if (chatRef.current) {
-        try {
-          // Importar dinamicamente o createChat do n8n
-          const { createChat } = await import('@n8n/chat');
-          
-          createChat({
-            webhookUrl: 'https://eleefe.app.n8n.cloud/webhook/b2969f0e-74e6-4d26-b97b-c84b6286604c/chat',
-            target: chatRef.current,
-            mode: 'fullscreen',
-            webhookConfig: {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              }
-            },
-            chatInputKey: 'message',
-            defaultLanguage: 'en',
-            showWelcomeScreen: false,
-            loadPreviousSession: true,
-            initialMessages: [
-              'Olá! 👋',
-              'Como posso te ajudar hoje?',
-              'Sugestão, pergunte sobre: Renda Fixa, Perfis de Investimento ou Cryptomoedas.'
-            ]
-          });
-        } catch (error) {
-          console.error('Erro ao carregar o chat N8N:', error);
-          // Fallback - mostrar uma mensagem simples
-          if (chatRef.current) {
-            chatRef.current.innerHTML = `
-              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 2rem; text-align: center;">
-                <p style="margin-bottom: 1rem;">Chat indisponível no momento</p>
-                <p style="font-size: 0.875rem; color: #666;">Tente recarregar a página</p>
-              </div>
-            `;
-          }
-        }
-      }
+    scrollToBottom();
+  }, [messages]);
+
+  async function perguntarIA(pergunta: string) {
+    try {
+      const response = await fetch("https://eleefe.app.n8n.cloud/webhook-test/financial_ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pergunta: pergunta })
+      });
+      const data = await response.json();
+      return data.resposta || data.message || "Desculpe, não consegui processar sua pergunta.";
+    } catch (error) {
+      console.error("Erro ao consultar IA:", error);
+      return "Desculpe, ocorreu um erro ao processar sua pergunta. Tente novamente.";
+    }
+  }
+
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || isLoading) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: inputValue.trim(),
+      isUser: true,
+      timestamp: new Date()
     };
 
-    loadChat();
-  }, []);
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue("");
+    setIsLoading(true);
+
+    try {
+      const response = await perguntarIA(userMessage.text);
+      
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: response,
+        isUser: false,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: "Desculpe, ocorreu um erro. Tente novamente.",
+        isUser: false,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleQuickAction = async (question: string) => {
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: question,
+      isUser: true,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
+
+    try {
+      const response = await perguntarIA(question);
+      
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: response,
+        isUser: false,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: "Desculpe, ocorreu um erro. Tente novamente.",
+        isUser: false,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const quickActions = [
     {
@@ -125,13 +194,84 @@ const AI = () => {
                 </CardDescription>
               </CardHeader>
               
-              <CardContent className="flex-1 flex flex-col p-0">
-                {/* N8N Chat Container */}
-                <div 
-                  ref={chatRef} 
-                  className="flex-1 w-full"
-                  style={{ height: '100%' }}
-                />
+              <CardContent className="flex-1 flex flex-col p-4">
+                {/* Messages Area */}
+                <ScrollArea className="flex-1 mb-4 pr-4">
+                  <div className="space-y-4">
+                    {messages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}
+                      >
+                        {!message.isUser && (
+                          <div className="w-8 h-8 rounded-full bg-gradient-warm flex items-center justify-center flex-shrink-0">
+                            <Bot className="h-4 w-4 text-white" />
+                          </div>
+                        )}
+                        <div
+                          className={`max-w-[80%] p-3 rounded-lg ${
+                            message.isUser
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+                          <span className="text-xs opacity-70 mt-1 block">
+                            {message.timestamp.toLocaleTimeString('pt-BR', { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </span>
+                        </div>
+                        {message.isUser && (
+                          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                            <User className="h-4 w-4 text-primary-foreground" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {isLoading && (
+                      <div className="flex gap-3 justify-start">
+                        <div className="w-8 h-8 rounded-full bg-gradient-warm flex items-center justify-center flex-shrink-0">
+                          <Bot className="h-4 w-4 text-white" />
+                        </div>
+                        <div className="bg-muted text-muted-foreground p-3 rounded-lg">
+                          <div className="flex gap-1">
+                            <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
+                            <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                            <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+                </ScrollArea>
+
+                {/* Input Area */}
+                <div className="flex gap-2">
+                  <Input
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    placeholder="Digite sua pergunta sobre finanças..."
+                    className="flex-1"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    disabled={isLoading}
+                  />
+                  <Button 
+                    onClick={handleSendMessage}
+                    disabled={!inputValue.trim() || isLoading}
+                    size="icon"
+                    className="bg-gradient-warm hover:bg-gradient-warm/90"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -153,7 +293,8 @@ const AI = () => {
                       key={index}
                       variant="outline"
                       className="w-full h-auto p-4 flex flex-col items-start text-left hover:bg-muted"
-                      onClick={() => {}}
+                      onClick={() => handleQuickAction(`Me fale sobre ${action.title.toLowerCase()}`)}
+                      disabled={isLoading}
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <Icon className="h-4 w-4 text-primary" />
