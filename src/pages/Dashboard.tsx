@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bot, Newspaper, Users, TrendingUp, LogOut, DollarSign } from "lucide-react";
+import { Bot, Newspaper, Users, TrendingUp, LogOut, DollarSign, PieChart } from "lucide-react";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -17,6 +17,14 @@ const Dashboard = () => {
       icon: Bot,
       path: "/ai",
       gradient: "bg-gradient-warm",
+      textColor: "text-white",
+    },
+    {
+      title: "Finanças",
+      description: "Gerencie seus gastos, investimentos e acompanhe metas financeiras",
+      icon: PieChart,
+      path: "/finances",
+      gradient: "bg-gradient-hero",
       textColor: "text-white",
     },
     {
@@ -97,7 +105,7 @@ const Dashboard = () => {
         </div>
 
         {/* Feature Cards */}
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (

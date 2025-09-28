@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import AI from "./pages/AI";
+import Finances from "./pages/Finances";
 import News from "./pages/News";
 import Community from "./pages/Community";
 import NotFound from "./pages/NotFound";
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/ai" element={<AI />} />
+          <Route path="/finances" element={<Finances />} />
           <Route path="/news" element={<News />} />
           <Route path="/community" element={<Community />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
