@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Bot, ArrowLeft, TrendingUp, PieChart, BarChart3, Send, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Message {
   id: string;
@@ -15,10 +16,11 @@ interface Message {
 
 const AI = () => {
   const navigate = useNavigate();
+  const { sessionId, user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      text: "Olá! 👋 Como posso te ajudar hoje? Sugestão, pergunte sobre: Renda Fixa, Perfis de Investimento ou Cryptomoedas.",
+      text: `Olá! 👋 Seu Session ID é: ${sessionId || 'carregando...'}. Como posso te ajudar hoje? Sugestão, pergunte sobre: Renda Fixa, Perfis de Investimento ou Cryptomoedas.`,
       isUser: false,
       timestamp: new Date()
     }
@@ -26,6 +28,18 @@ const AI = () => {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Update welcome message when sessionId is available
+  useEffect(() => {
+    if (sessionId && messages.length === 1) {
+      setMessages([{
+        id: "1",
+        text: `Olá! 👋 Seu Session ID é: ${sessionId}. Como posso te ajudar hoje? Sugestão, pergunte sobre: Renda Fixa, Perfis de Investimento ou Cryptomoedas.`,
+        isUser: false,
+        timestamp: new Date()
+      }]);
+    }
+  }, [sessionId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -37,10 +51,15 @@ const AI = () => {
 
   async function perguntarIA(pergunta: string) {
     try {
+      const payload = {
+        sessionId: sessionId || `user_${user?.id?.slice(0, 8)}`,
+        mensagem: pergunta
+      };
+
       const response = await fetch("https://eleefe.app.n8n.cloud/webhook-test/financial_ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pergunta: pergunta })
+        body: JSON.stringify(payload)
       });
       const data = await response.json();
       return data.resposta || data.message || "Desculpe, não consegui processar sua pergunta.";

@@ -1,14 +1,20 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Bot, Newspaper, Users, TrendingUp, LogOut, DollarSign, PieChart } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { UserMenu } from "@/components/UserMenu";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user, loading, sessionId } = useAuth();
 
-  const handleLogout = () => {
-    navigate("/");
-  };
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/");
+    }
+  }, [user, loading, navigate]);
 
   const features = [
     {
@@ -61,14 +67,14 @@ const Dashboard = () => {
               </div>
             </div>
             
-            <Button 
-              variant="outline" 
-              onClick={handleLogout}
-              className="flex items-center gap-2 hover:bg-muted"
-            >
-              <LogOut className="h-4 w-4" />
-              Sair
-            </Button>
+            <div className="flex items-center gap-4">
+              {sessionId && (
+                <div className="text-sm text-muted-foreground">
+                  Session ID: <span className="font-mono text-primary">{sessionId}</span>
+                </div>
+              )}
+              <UserMenu />
+            </div>
           </div>
         </div>
       </header>

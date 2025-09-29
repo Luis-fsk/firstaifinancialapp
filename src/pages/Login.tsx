@@ -1,32 +1,132 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, DollarSign, PieChart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    // Check if user is already logged in
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate("/dashboard");
+      }
+    };
+    checkUser();
+  }, [navigate]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email && password) {
-      toast({
-        title: "Login realizado com sucesso!",
-        description: "Bem-vindo ao seu app de finanças.",
+    setIsLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-      navigate("/dashboard");
-    } else {
+
+      if (error) {
+        toast({
+          title: "Erro no login",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.user) {
+        // Create AI session ID for the user
+        const sessionId = `${username || data.user.email?.split('@')[0]}_${Date.now()}`;
+        
+        await supabase.from('ai_sessions').upsert({
+          user_id: data.user.id,
+          session_id: sessionId,
+          last_activity: new Date().toISOString()
+        });
+
+        toast({
+          title: "Login realizado com sucesso!",
+          description: `Bem-vindo ao seu app de finanças. Session ID: ${sessionId}`,
+        });
+        navigate("/dashboard");
+      }
+    } catch (error) {
       toast({
         title: "Erro no login",
-        description: "Por favor, preencha todos os campos.",
+        description: "Ocorreu um erro inesperado.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      if (!username.trim()) {
+        toast({
+          title: "Username obrigatório",
+          description: "Por favor, insira um nome de usuário.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            username: username,
+            display_name: displayName || username,
+          }
+        }
+      });
+
+      if (error) {
+        toast({
+          title: "Erro no cadastro",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.user) {
+        toast({
+          title: "Conta criada com sucesso!",
+          description: "Verifique seu email para confirmar a conta.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro no cadastro",
+        description: "Ocorreu um erro inesperado.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -48,49 +148,133 @@ const Login = () => {
         <Card className="backdrop-blur-sm bg-white/95 border-0 shadow-warm-lg">
           <CardHeader className="space-y-1 pb-8">
             <CardTitle className="text-2xl text-center font-bold text-foreground">
-              Entre na sua conta
+              Acesse sua conta
             </CardTitle>
             <CardDescription className="text-center text-muted-foreground">
-              Acesse seu dashboard financeiro
+              Entre ou crie sua conta no FinanceApp
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="h-11 border-border focus:ring-primary"
-                />
-              </div>
+            <Tabs defaultValue="login" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login">Entrar</TabsTrigger>
+                <TabsTrigger value="signup">Criar Conta</TabsTrigger>
+              </TabsList>
               
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium">
-                  Senha
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-11 border-border focus:ring-primary"
-                />
-              </div>
+              <TabsContent value="login">
+                <form onSubmit={handleLogin} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="login-email" className="text-sm font-medium">
+                      Email
+                    </Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="h-11 border-border focus:ring-primary"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="login-password" className="text-sm font-medium">
+                      Senha
+                    </Label>
+                    <Input
+                      id="login-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="h-11 border-border focus:ring-primary"
+                      required
+                    />
+                  </div>
 
-              <Button 
-                type="submit" 
-                className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-warm transition-all duration-300 hover:shadow-warm-lg hover:scale-105"
-              >
-                Entrar
-              </Button>
-            </form>
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading}
+                    className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-warm transition-all duration-300 hover:shadow-warm-lg hover:scale-105"
+                  >
+                    {isLoading ? "Entrando..." : "Entrar"}
+                  </Button>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="signup">
+                <form onSubmit={handleSignup} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-username" className="text-sm font-medium">
+                      Nome de Usuário
+                    </Label>
+                    <Input
+                      id="signup-username"
+                      type="text"
+                      placeholder="meuusername"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className="h-11 border-border focus:ring-primary"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-display-name" className="text-sm font-medium">
+                      Nome de Exibição (opcional)
+                    </Label>
+                    <Input
+                      id="signup-display-name"
+                      type="text"
+                      placeholder="Meu Nome Completo"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      className="h-11 border-border focus:ring-primary"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-email" className="text-sm font-medium">
+                      Email
+                    </Label>
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="h-11 border-border focus:ring-primary"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password" className="text-sm font-medium">
+                      Senha
+                    </Label>
+                    <Input
+                      id="signup-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="h-11 border-border focus:ring-primary"
+                      required
+                      minLength={6}
+                    />
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading}
+                    className="w-full h-11 bg-secondary hover:bg-secondary/90 text-secondary-foreground font-medium shadow-warm transition-all duration-300 hover:shadow-warm-lg hover:scale-105"
+                  >
+                    {isLoading ? "Criando conta..." : "Criar Conta"}
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
 
             <div className="mt-8 pt-6 border-t border-border">
               <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
