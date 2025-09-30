@@ -95,6 +95,7 @@ const News = () => {
 
     try {
       setAnalyzingArticle(article.id);
+      console.log('Starting analysis for article:', article.id, article.title);
       
       const { data, error } = await supabase.functions.invoke('analyze-news', {
         body: {
@@ -105,23 +106,44 @@ const News = () => {
         }
       });
 
+      console.log('Function response:', { data, error });
+
       if (error) {
+        console.error('Supabase function error:', error);
         throw error;
       }
 
-      if (data?.error) {
+      // Handle different response formats
+      let analysisText = '';
+      if (data?.analysis) {
+        analysisText = data.analysis;
+      } else if (data?.reply) {
+        analysisText = data.reply;
+      } else if (data?.resposta) {
+        analysisText = data.resposta;
+      } else if (data?.error) {
         toast({
           title: "Erro",
           description: data.error,
           variant: "destructive",
         });
         return;
+      } else {
+        console.error('Unexpected response format:', data);
+        toast({
+          title: "Erro",
+          description: "Formato de resposta inesperado",
+          variant: "destructive",
+        });
+        return;
       }
+
+      console.log('Analysis extracted:', analysisText);
 
       // Update local state with analysis
       setNewsArticles(prev => prev.map(a => 
         a.id === article.id 
-          ? { ...a, ai_analysis: data.analysis }
+          ? { ...a, ai_analysis: analysisText }
           : a
       ));
       

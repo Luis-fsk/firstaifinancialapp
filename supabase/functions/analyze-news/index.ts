@@ -12,7 +12,10 @@ serve(async (req) => {
   }
 
   try {
-    const { newsId, title, summary, category } = await req.json();
+    const requestBody = await req.json();
+    console.log('Request received:', requestBody);
+    
+    const { newsId, title, summary, category } = requestBody;
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -21,6 +24,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log('Analyzing news article:', title);
+    console.log('Environment check - LOVABLE_API_KEY exists:', !!lovableApiKey);
 
     // Call Lovable AI to generate analysis
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -74,9 +78,37 @@ Seja objetivo e use linguagem acessível.`
     }
 
     const aiResponse = await response.json();
-    const analysis = aiResponse.choices[0].message.content;
+    console.log('Full AI Response:', JSON.stringify(aiResponse, null, 2));
+    
+    // Handle different response formats
+    let analysis = '';
+    if (aiResponse.choices && aiResponse.choices[0]?.message?.content) {
+      // Standard OpenAI format
+      analysis = aiResponse.choices[0].message.content;
+      console.log('Using standard OpenAI format');
+    } else if (aiResponse.reply) {
+      // Webhook format: { "reply": "response" }
+      analysis = aiResponse.reply;
+      console.log('Using webhook reply format');
+    } else if (aiResponse.resposta) {
+      // Portuguese format: { "resposta": "response" }
+      analysis = aiResponse.resposta;
+      console.log('Using Portuguese resposta format');
+    } else if (typeof aiResponse === 'string') {
+      // Sometimes the response might be a direct string
+      analysis = aiResponse;
+      console.log('Using direct string format');
+    } else {
+      console.error('Unexpected AI response format:', aiResponse);
+      console.error('Available keys:', Object.keys(aiResponse || {}));
+      throw new Error('Formato de resposta inesperado da IA');
+    }
+
+    console.log('Extracted analysis length:', analysis.length);
+    console.log('Analysis preview:', analysis.substring(0, 100) + '...');
 
     // Update the news article with AI analysis
+    console.log('Updating news article with analysis for ID:', newsId);
     const { error: updateError } = await supabase
       .from('news_articles')
       .update({ ai_analysis: analysis })
@@ -91,7 +123,8 @@ Seja objetivo e use linguagem acessível.`
 
     return new Response(JSON.stringify({ 
       success: true, 
-      analysis: analysis 
+      analysis: analysis,
+      newsId: newsId
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
