@@ -38,6 +38,48 @@ export type Database = {
         }
         Relationships: []
       }
+      news_articles: {
+        Row: {
+          ai_analysis: string | null
+          category: string
+          content: string | null
+          created_at: string
+          id: string
+          published_at: string
+          source: string
+          source_url: string
+          summary: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          ai_analysis?: string | null
+          category: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          published_at: string
+          source: string
+          source_url: string
+          summary: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          ai_analysis?: string | null
+          category?: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          published_at?: string
+          source?: string
+          source_url?: string
+          summary?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

@@ -1,56 +1,184 @@
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Newspaper, ArrowLeft, Clock, TrendingUp, ExternalLink } from "lucide-react";
+import { Newspaper, ArrowLeft, Clock, TrendingUp, ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+
+interface NewsArticle {
+  id: string;
+  title: string;
+  summary: string;
+  category: string;
+  source: string;
+  source_url: string;
+  published_at: string;
+  ai_analysis?: string;
+}
 
 const News = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState("Todas");
+  const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
+  const [analyzingArticle, setAnalyzingArticle] = useState<string | null>(null);
+  const clickTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
-  const newsArticles = [
-    {
-      title: "Mercado de criptomoedas registra alta de 15% esta semana",
-      summary: "Bitcoin e principais altcoins lideram movimento de recuperação após correção do mês passado.",
-      category: "Criptomoedas",
-      time: "2 horas atrás",
-      featured: true,
-    },
-    {
-      title: "Banco Central mantém taxa Selic em 11,75%",
-      summary: "Decisão era esperada pelo mercado e reflete cenário de inflação controlada.",
-      category: "Economia",
-      time: "4 horas atrás",
-      featured: false,
-    },
-    {
-      title: "Ações da Vale sobem 8% após anúncio de dividendos",
-      summary: "Mineradora anuncia distribuição extraordinária de dividendos para acionistas.",
-      category: "Bolsa",
-      time: "6 horas atrás",
-      featured: true,
-    },
-    {
-      title: "Dólar recua para R$ 5,20 em meio a fluxo estrangeiro",
-      summary: "Moeda americana perde força com entrada de capital internacional no país.",
-      category: "Câmbio",
-      time: "8 horas atrás",
-      featured: false,
-    },
-    {
-      title: "Fundos imobiliários atraem R$ 2,5 bi em janeiro",
-      summary: "Setor de FIIs continua aquecido com alta demanda por renda passiva.",
-      category: "Investimentos",
-      time: "1 dia atrás",
-      featured: false,
-    },
-    {
-      title: "Tesouro Direto: IPCA+ 2029 rende 6,2% ao ano",
-      summary: "Títulos públicos oferecem boa oportunidade para proteção contra inflação.",
-      category: "Renda Fixa",
-      time: "1 dia atrás",
-      featured: false,
-    },
-  ];
+  useEffect(() => {
+    fetchNews();
+    // Auto-fetch news every hour
+    const interval = setInterval(fetchNews, 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchNews = async () => {
+    try {
+      setLoading(true);
+      
+      // First fetch existing news from database
+      const { data: existingNews, error: fetchError } = await supabase
+        .from('news_articles')
+        .select('*')
+        .order('published_at', { ascending: false });
+
+      if (fetchError) {
+        console.error('Error fetching news:', fetchError);
+        toast({
+          title: "Erro",
+          description: "Erro ao carregar notícias",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // If no news exists or it's been more than a day, fetch new news
+      const shouldFetchNew = !existingNews || existingNews.length === 0 || 
+        (existingNews[0] && new Date().getTime() - new Date(existingNews[0].published_at).getTime() > 24 * 60 * 60 * 1000);
+
+      if (shouldFetchNew) {
+        console.log('Fetching fresh news...');
+        await supabase.functions.invoke('fetch-news');
+        
+        // Refetch after new articles are added
+        const { data: freshNews, error: refetchError } = await supabase
+          .from('news_articles')
+          .select('*')
+          .order('published_at', { ascending: false });
+
+        if (!refetchError && freshNews) {
+          setNewsArticles(freshNews);
+        }
+      } else {
+        setNewsArticles(existingNews || []);
+      }
+    } catch (error) {
+      console.error('Error in fetchNews:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar notícias",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const analyzeArticle = async (article: NewsArticle) => {
+    if (article.ai_analysis) {
+      setExpandedArticle(expandedArticle === article.id ? null : article.id);
+      return;
+    }
+
+    try {
+      setAnalyzingArticle(article.id);
+      
+      const { data, error } = await supabase.functions.invoke('analyze-news', {
+        body: {
+          newsId: article.id,
+          title: article.title,
+          summary: article.summary,
+          category: article.category
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.error) {
+        toast({
+          title: "Erro",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update local state with analysis
+      setNewsArticles(prev => prev.map(a => 
+        a.id === article.id 
+          ? { ...a, ai_analysis: data.analysis }
+          : a
+      ));
+      
+      setExpandedArticle(article.id);
+      
+      toast({
+        title: "Análise gerada",
+        description: "Análise por IA foi gerada com sucesso",
+      });
+    } catch (error) {
+      console.error('Error analyzing article:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao gerar análise",
+        variant: "destructive",
+      });
+    } finally {
+      setAnalyzingArticle(null);
+    }
+  };
+
+  const handleArticleClick = (article: NewsArticle) => {
+    const articleId = article.id;
+    
+    // Clear existing timeout for this article
+    if (clickTimeouts.current[articleId]) {
+      clearTimeout(clickTimeouts.current[articleId]);
+      delete clickTimeouts.current[articleId];
+      
+      // This is a double click - redirect to source
+      window.open(article.source_url, '_blank');
+      return;
+    }
+
+    // Set timeout for single click
+    clickTimeouts.current[articleId] = setTimeout(() => {
+      delete clickTimeouts.current[articleId];
+      analyzeArticle(article);
+    }, 300);
+  };
+
+  const getTimeAgo = (publishedAt: string) => {
+    const now = new Date();
+    const published = new Date(publishedAt);
+    const diffInHours = Math.floor((now.getTime() - published.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return "Menos de 1 hora atrás";
+    if (diffInHours < 24) return `${diffInHours} horas atrás`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} dias atrás`;
+  };
+
+  const filteredArticles = selectedCategory === "Todas" 
+    ? newsArticles 
+    : newsArticles.filter(article => article.category === selectedCategory);
+
+  const featuredArticles = filteredArticles.slice(0, 2);
 
   const categories = ["Todas", "Economia", "Bolsa", "Criptomoedas", "Câmbio", "Investimentos", "Renda Fixa"];
 
@@ -88,6 +216,20 @@ const News = () => {
                 <h1 className="text-xl font-bold text-foreground">Notícias Financeiras</h1>
                 <p className="text-sm text-muted-foreground">Últimas do mercado financeiro</p>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchNews}
+                disabled={loading}
+                className="ml-auto"
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Atualizar
+              </Button>
             </div>
           </div>
         </div>
@@ -109,93 +251,157 @@ const News = () => {
 
         {/* Categories Filter */}
         <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
-          {categories.map((category, index) => (
+          {categories.map((category) => (
             <Button
-              key={index}
-              variant={index === 0 ? "default" : "outline"}
+              key={category}
+              variant={selectedCategory === category ? "default" : "outline"}
               size="sm"
               className="whitespace-nowrap"
+              onClick={() => setSelectedCategory(category)}
             >
               {category}
             </Button>
           ))}
         </div>
 
-        {/* Featured Articles */}
-        <div className="mb-8">
-          <h3 className="text-xl font-semibold mb-4 text-foreground">Destaques</h3>
-          <div className="grid md:grid-cols-2 gap-6">
-            {newsArticles.filter(article => article.featured).map((article, index) => (
-              <Card key={index} className="group cursor-pointer hover:shadow-warm transition-all duration-300">
-                <CardHeader>
-                  <div className="flex items-center justify-between mb-2">
-                    <Badge className={getCategoryColor(article.category)}>
-                      {article.category}
-                    </Badge>
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      {article.time}
-                    </div>
-                  </div>
-                  <CardTitle className="group-hover:text-primary transition-colors">
-                    {article.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="mb-4">
-                    {article.summary}
-                  </CardDescription>
-                  <Button variant="ghost" size="sm" className="p-0 h-auto font-medium text-primary hover:text-primary/80">
-                    Ler mais
-                    <ExternalLink className="h-3 w-3 ml-1" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+        {loading && (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin" />
           </div>
-        </div>
+        )}
 
-        {/* All Articles */}
-        <div>
-          <h3 className="text-xl font-semibold mb-4 text-foreground">Todas as Notícias</h3>
-          <div className="space-y-4">
-            {newsArticles.map((article, index) => (
-              <Card key={index} className="group cursor-pointer hover:shadow-sm transition-all duration-300">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge variant="secondary" className={getCategoryColor(article.category)}>
-                          {article.category}
-                        </Badge>
+        {!loading && featuredArticles.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-xl font-semibold mb-4 text-foreground">Destaques</h3>
+            <div className="grid md:grid-cols-2 gap-6">
+              {featuredArticles.map((article) => (
+                <Card 
+                  key={article.id} 
+                  className="group cursor-pointer hover:shadow-warm transition-all duration-300"
+                  onClick={() => handleArticleClick(article)}
+                >
+                  <CardHeader>
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge className={getCategoryColor(article.category)}>
+                        {article.category}
+                      </Badge>
+                      <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <Clock className="h-3 w-3" />
-                          {article.time}
+                          {getTimeAgo(article.published_at)}
+                        </div>
+                        {analyzingArticle === article.id && (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        )}
+                      </div>
+                    </div>
+                    <CardTitle className="group-hover:text-primary transition-colors">
+                      {article.title}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription className="mb-4">
+                      {article.summary}
+                    </CardDescription>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        Fonte: {article.source}
+                      </span>
+                      <div className="text-xs text-muted-foreground">
+                        1 clique: análise IA • 2 cliques: fonte original
+                      </div>
+                    </div>
+                    {expandedArticle === article.id && article.ai_analysis && (
+                      <div className="mt-4 p-4 bg-muted rounded-lg">
+                        <h4 className="font-semibold mb-2 text-foreground">Análise de Impacto:</h4>
+                        <div className="text-sm text-foreground whitespace-pre-wrap">
+                          {article.ai_analysis}
                         </div>
                       </div>
-                      <h4 className="font-semibold text-foreground group-hover:text-primary transition-colors mb-2">
-                        {article.title}
-                      </h4>
-                      <p className="text-muted-foreground text-sm">
-                        {article.summary}
-                      </p>
-                    </div>
-                    <Button variant="ghost" size="sm">
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* All Articles */}
+        {!loading && (
+          <div>
+            <h3 className="text-xl font-semibold mb-4 text-foreground">
+              Todas as Notícias {selectedCategory !== "Todas" && `- ${selectedCategory}`}
+            </h3>
+            <div className="space-y-4">
+              {filteredArticles.map((article) => (
+                <Card 
+                  key={article.id} 
+                  className="group cursor-pointer hover:shadow-sm transition-all duration-300"
+                  onClick={() => handleArticleClick(article)}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="secondary" className={getCategoryColor(article.category)}>
+                            {article.category}
+                          </Badge>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            {getTimeAgo(article.published_at)}
+                          </div>
+                          {analyzingArticle === article.id && (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          )}
+                        </div>
+                        <h4 className="font-semibold text-foreground group-hover:text-primary transition-colors mb-2">
+                          {article.title}
+                        </h4>
+                        <p className="text-muted-foreground text-sm mb-2">
+                          {article.summary}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            Fonte: {article.source}
+                          </span>
+                          <div className="text-xs text-muted-foreground">
+                            1 clique: análise IA • 2 cliques: fonte original
+                          </div>
+                        </div>
+                        {expandedArticle === article.id && article.ai_analysis && (
+                          <div className="mt-4 p-4 bg-muted rounded-lg">
+                            <h4 className="font-semibold mb-2 text-foreground">Análise de Impacto:</h4>
+                            <div className="text-sm text-foreground whitespace-pre-wrap">
+                              {article.ai_analysis}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <Button variant="ghost" size="sm">
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Load More */}
-        <div className="text-center mt-8">
-          <Button variant="outline" className="px-8">
-            Carregar mais notícias
-          </Button>
-        </div>
+        {!loading && filteredArticles.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Nenhuma notícia encontrada para esta categoria.</p>
+          </div>
+        )}
+        
+        {!loading && filteredArticles.length > 10 && (
+          <div className="text-center mt-8">
+            <Button variant="outline" className="px-8" onClick={fetchNews}>
+              Buscar mais notícias
+            </Button>
+          </div>
+        )}
       </main>
     </div>
   );
