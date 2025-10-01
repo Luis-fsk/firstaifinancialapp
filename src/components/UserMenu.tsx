@@ -122,8 +122,8 @@ export function UserMenu() {
     
     setIsDeleting(true);
     try {
-      // Delete user account - this will cascade delete related data
-      const { error } = await supabase.rpc('delete_user');
+      // Call delete user edge function
+      const { data, error } = await supabase.functions.invoke('delete-user');
 
       if (error) {
         toast({
@@ -131,6 +131,17 @@ export function UserMenu() {
           description: error.message,
           variant: "destructive",
         });
+        setIsDeleting(false);
+        return;
+      }
+
+      if (data?.error) {
+        toast({
+          title: "Erro ao deletar conta",
+          description: data.error,
+          variant: "destructive",
+        });
+        setIsDeleting(false);
         return;
       }
 
@@ -147,9 +158,7 @@ export function UserMenu() {
         description: "Ocorreu um erro ao deletar a conta.",
         variant: "destructive",
       });
-    } finally {
       setIsDeleting(false);
-      setShowDeleteDialog(false);
     }
   };
 
