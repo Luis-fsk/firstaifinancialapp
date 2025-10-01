@@ -56,13 +56,30 @@ const AI = () => {
         mensagem: pergunta
       };
 
+      console.log('Enviando para webhook:', payload);
+
       const response = await fetch("https://eleefe.app.n8n.cloud/webhook-test/financial_ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      
       const data = await response.json();
-      return data.resposta || data.message || "Desculpe, não consegui processar sua pergunta.";
+      console.log('Resposta recebida do webhook:', data);
+      
+      // Handle different response formats
+      if (data.reply) {
+        return data.reply;
+      } else if (data.resposta) {
+        return data.resposta;
+      } else if (data.message) {
+        return data.message;
+      } else if (typeof data === 'string') {
+        return data;
+      }
+      
+      console.error('Formato de resposta inesperado:', data);
+      return "Desculpe, não consegui processar sua pergunta.";
     } catch (error) {
       console.error("Erro ao consultar IA:", error);
       return "Desculpe, ocorreu um erro ao processar sua pergunta. Tente novamente.";

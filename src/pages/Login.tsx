@@ -15,6 +15,8 @@ const Login = () => {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -130,6 +132,41 @@ const Login = () => {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/`,
+      });
+
+      if (error) {
+        toast({
+          title: "Erro ao redefinir senha",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Email enviado!",
+        description: "Verifique seu email para redefinir sua senha.",
+      });
+      setShowResetPassword(false);
+      setResetEmail("");
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro inesperado.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -162,45 +199,91 @@ const Login = () => {
               </TabsList>
               
               <TabsContent value="login">
-                <form onSubmit={handleLogin} className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="login-email" className="text-sm font-medium">
-                      Email
-                    </Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="h-11 border-border focus:ring-primary"
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="login-password" className="text-sm font-medium">
-                      Senha
-                    </Label>
-                    <Input
-                      id="login-password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="h-11 border-border focus:ring-primary"
-                      required
-                    />
-                  </div>
+                {!showResetPassword ? (
+                  <form onSubmit={handleLogin} className="space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="login-email" className="text-sm font-medium">
+                        Email
+                      </Label>
+                      <Input
+                        id="login-email"
+                        type="email"
+                        placeholder="seu@email.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="h-11 border-border focus:ring-primary"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <Label htmlFor="login-password" className="text-sm font-medium">
+                          Senha
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() => setShowResetPassword(true)}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          Esqueceu a senha?
+                        </button>
+                      </div>
+                      <Input
+                        id="login-password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="h-11 border-border focus:ring-primary"
+                        required
+                      />
+                    </div>
 
-                  <Button 
-                    type="submit" 
-                    disabled={isLoading}
-                    className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-warm transition-all duration-300 hover:shadow-warm-lg hover:scale-105"
-                  >
-                    {isLoading ? "Entrando..." : "Entrar"}
-                  </Button>
-                </form>
+                    <Button 
+                      type="submit" 
+                      disabled={isLoading}
+                      className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-warm transition-all duration-300 hover:shadow-warm-lg hover:scale-105"
+                    >
+                      {isLoading ? "Entrando..." : "Entrar"}
+                    </Button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleResetPassword} className="space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="reset-email" className="text-sm font-medium">
+                        Email
+                      </Label>
+                      <Input
+                        id="reset-email"
+                        type="email"
+                        placeholder="seu@email.com"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        className="h-11 border-border focus:ring-primary"
+                        required
+                      />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button 
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowResetPassword(false)}
+                        className="flex-1"
+                      >
+                        Voltar
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        disabled={isLoading}
+                        className="flex-1 bg-primary hover:bg-primary/90"
+                      >
+                        {isLoading ? "Enviando..." : "Enviar"}
+                      </Button>
+                    </div>
+                  </form>
+                )}
               </TabsContent>
 
               <TabsContent value="signup">
