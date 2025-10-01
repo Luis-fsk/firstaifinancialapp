@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, Settings, HelpCircle, FileText, LogOut, Camera, Edit } from "lucide-react";
+import { User, Settings, HelpCircle, FileText, LogOut, Camera, Edit, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +24,9 @@ export function UserMenu() {
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const [profileData, setProfileData] = useState({
     display_name: profile?.display_name || "",
@@ -115,6 +117,42 @@ export function UserMenu() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    
+    setIsDeleting(true);
+    try {
+      // Delete user account - this will cascade delete related data
+      const { error } = await supabase.rpc('delete_user');
+
+      if (error) {
+        toast({
+          title: "Erro ao deletar conta",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Conta deletada",
+        description: "Sua conta foi deletada com sucesso.",
+      });
+      
+      // Sign out after deletion
+      await signOut();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao deletar a conta.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
   if (!user || !profile) return null;
 
   return (
@@ -158,7 +196,11 @@ export function UserMenu() {
             <span>Relatório Financeiro</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+          <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-destructive">
+            <Trash2 className="mr-2 h-4 w-4" />
+            <span>Deletar conta</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
             <span>Sair da conta</span>
           </DropdownMenuItem>
@@ -339,6 +381,43 @@ export function UserMenu() {
                 </ul>
               </div>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Account Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Deletar Conta</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Tem certeza que deseja deletar sua conta? Esta ação é irreversível e todos os seus dados serão permanentemente removidos.
+              </p>
+              <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <h4 className="font-medium text-destructive mb-2">⚠️ Atenção:</h4>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• Todos os seus dados financeiros serão apagados</li>
+                  <li>• Seu histórico de conversas com IA será perdido</li>
+                  <li>• Suas postagens na comunidade serão removidas</li>
+                  <li>• Esta ação não pode ser desfeita</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteAccount} 
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deletando..." : "Deletar Conta"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
