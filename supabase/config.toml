@@ -50,5 +50,8 @@ verify_jwt = false
 [functions.analyze-news]
 verify_jwt = false
 
+[functions.delete-account]
+verify_jwt = true
+
 [functions.delete-user]
 verify_jwt = true

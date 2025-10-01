@@ -122,8 +122,24 @@ export function UserMenu() {
     
     setIsDeleting(true);
     try {
-      // Call delete user edge function
-      const { data, error } = await supabase.functions.invoke('delete-user');
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      
+      if (!token) {
+        toast({
+          title: "Erro",
+          description: "Sessão inválida",
+          variant: "destructive",
+        });
+        setIsDeleting(false);
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('delete-account', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
 
       if (error) {
         toast({
@@ -150,12 +166,12 @@ export function UserMenu() {
         description: "Sua conta foi deletada com sucesso.",
       });
       
-      // Sign out after deletion
+      setShowDeleteDialog(false);
       await signOut();
     } catch (error) {
       toast({
         title: "Erro",
-        description: "Ocorreu um erro ao deletar a conta.",
+        description: "Ocorreu um erro inesperado.",
         variant: "destructive",
       });
       setIsDeleting(false);
