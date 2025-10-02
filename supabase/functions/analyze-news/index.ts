@@ -27,23 +27,18 @@ serve(async (req) => {
     console.log('Environment check - LOVABLE_API_KEY exists:', !!lovableApiKey);
 
     // Call Lovable AI to generate analysis
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: 'Você é um analista financeiro especializado. Analise notícias financeiras e explique seus impactos nos investimentos de forma clara e didática para investidores brasileiros.'
-          },
-          {
-            role: 'user',
-            content: `Analise esta notícia:
-            
+    console.log('Making request to Lovable AI...');
+    const aiRequestBody = {
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        {
+          role: 'system',
+          content: 'Você é um analista financeiro especializado. Analise notícias financeiras e explique seus impactos nos investimentos de forma clara e didática para investidores brasileiros.'
+        },
+        {
+          role: 'user',
+          content: `Analise esta notícia:
+          
 Título: ${title}
 Resumo: ${summary}
 Categoria: ${category}
@@ -54,31 +49,66 @@ Forneça uma análise de 2-3 parágrafos explicando:
 3. Recomendações práticas para investidores
 
 Seja objetivo e use linguagem acessível.`
-          }
-        ],
-      }),
-    });
+        }
+      ],
+    };
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }), {
-          status: 429,
+    console.log('AI Request payload:', JSON.stringify(aiRequestBody, null, 2));
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    let aiResponse;
+    try {
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${lovableApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(aiRequestBody),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      console.log('AI Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('AI API error response:', errorText);
+        
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }), {
+            status: 429,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        if (response.status === 402) {
+          return new Response(JSON.stringify({ error: "Créditos insuficientes para análise por IA." }), {
+            status: 402,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        throw new Error(`AI API error: ${response.status} - ${errorText}`);
+      }
+
+      aiResponse = await response.json();
+      console.log('AI Response received successfully');
+      console.log('Response keys:', Object.keys(aiResponse || {}));
+      console.log('Full AI Response:', JSON.stringify(aiResponse, null, 2));
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error('Request timeout after 30 seconds');
+        return new Response(JSON.stringify({ error: "Timeout ao tentar gerar análise. Tente novamente." }), {
+          status: 504,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes para análise por IA." }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      throw new Error(`AI API error: ${response.status}`);
+      throw fetchError;
     }
-
-    const aiResponse = await response.json();
-    console.log('Full AI Response:', JSON.stringify(aiResponse, null, 2));
     
     // Handle different response formats
     let analysis = '';
