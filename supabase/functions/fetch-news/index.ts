@@ -91,7 +91,7 @@ serve(async (req) => {
           source_url: newsItem.source_url,
           published_at: newsItem.published_at
         }, {
-          onConflict: 'title',
+          onConflict: 'source_url',
           ignoreDuplicates: true
         });
 
