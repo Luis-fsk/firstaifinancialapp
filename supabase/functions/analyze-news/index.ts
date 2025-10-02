@@ -83,13 +83,16 @@ Seja objetivo e use linguagem acessível.`
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        
-        if (response.status === 402) {
-          return new Response(JSON.stringify({ error: "Créditos insuficientes para análise por IA." }), {
-            status: 402,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
+      
+      if (response.status === 402) {
+        console.error('Insufficient credits for AI analysis');
+        return new Response(JSON.stringify({ 
+          error: "Créditos insuficientes. Por favor, adicione créditos em https://docs.lovable.dev/features/ai" 
+        }), {
+          status: 402,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
         throw new Error(`AI API error: ${response.status} - ${errorText}`);
       }

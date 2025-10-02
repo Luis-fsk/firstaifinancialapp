@@ -320,9 +320,9 @@ export function UserMenu() {
           <div className="grid gap-4 py-4">
             <div className="space-y-4">
               <div>
-                <h4 className="font-medium">Como usar o FinanceApp</h4>
+                <h4 className="font-medium">Como usar o Growing</h4>
                 <p className="text-sm text-muted-foreground mt-1">
-                  O FinanceApp oferece controle inteligente das suas finanças com IA integrada.
+                  O Growing oferece controle inteligente das suas finanças com IA integrada.
                 </p>
               </div>
               

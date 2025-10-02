@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, DollarSign, PieChart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import growingLogo from "@/assets/growing-logo.png";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -172,10 +173,12 @@ const Login = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center items-center gap-2 mb-4">
-            <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm">
-              <TrendingUp className="h-8 w-8 text-white" />
-            </div>
-            <h1 className="text-3xl font-bold text-white">FinanceApp</h1>
+            <img 
+              src={growingLogo} 
+              alt="Growing Logo" 
+              className="h-16 w-16 object-contain"
+            />
+            <h1 className="text-3xl font-bold text-white">Growing</h1>
           </div>
           <p className="text-white/80 text-lg">
             Gerencie suas finanças com inteligência
@@ -188,7 +191,7 @@ const Login = () => {
               Acesse sua conta
             </CardTitle>
             <CardDescription className="text-center text-muted-foreground">
-              Entre ou crie sua conta no FinanceApp
+              Entre ou crie sua conta no Growing
             </CardDescription>
           </CardHeader>
           <CardContent>

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Bot, Newspaper, Users, TrendingUp, LogOut, DollarSign, PieChart } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { UserMenu } from "@/components/UserMenu";
+import growingLogo from "@/assets/growing-logo.png";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -58,11 +59,13 @@ const Dashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-warm rounded-lg">
-                <TrendingUp className="h-6 w-6 text-white" />
-              </div>
+              <img 
+                src={growingLogo} 
+                alt="Growing Logo" 
+                className="h-10 w-10 object-contain"
+              />
               <div>
-                <h1 className="text-xl font-bold text-foreground">FinanceApp</h1>
+                <h1 className="text-xl font-bold text-foreground">Growing</h1>
                 <p className="text-sm text-muted-foreground">Dashboard</p>
               </div>
             </div>
