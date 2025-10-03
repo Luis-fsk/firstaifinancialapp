@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -9,106 +9,66 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Users, ArrowLeft, MessageCircle, Heart, Share2, TrendingUp, Award, Clock, Plus, Image, Send, UserPlus, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Post {
   id: string;
-  author: string;
-  initials: string;
+  user_id: string;
+  author_name: string;
+  author_initials: string;
   content: string;
-  image?: string;
+  image_url?: string;
   category: string;
-  likes: number;
-  replies: Reply[];
-  time: string;
-  liked: boolean;
+  likes_count: number;
+  created_at: string;
+  liked?: boolean;
+  replies?: Reply[];
 }
 
 interface Reply {
   id: string;
-  author: string;
-  initials: string;
+  post_id: string;
+  user_id: string;
+  author_name: string;
+  author_initials: string;
   content: string;
-  image?: string;
-  time: string;
-  likes: number;
-  liked: boolean;
+  image_url?: string;
+  likes_count: number;
+  created_at: string;
+  liked?: boolean;
 }
 
 interface ChatMessage {
   id: string;
-  sender: string;
+  sender_id: string;
+  receiver_id: string;
   content: string;
-  time: string;
-  type: 'sent' | 'received';
+  created_at: string;
+  is_read: boolean;
 }
 
 interface Connection {
   id: string;
-  name: string;
-  initials: string;
+  user_id: string;
+  connected_user_id: string;
   status: 'pending' | 'connected';
-  lastMessage?: string;
-  lastMessageTime?: string;
-  unreadCount?: number;
+  created_at: string;
+  profiles?: {
+    display_name: string;
+    username: string;
+  };
 }
 
 const Community = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Estados
-  const [posts, setPosts] = useState<Post[]>([
-    {
-      id: '1',
-      author: 'Marina Lopez',
-      initials: 'ML',
-      content: 'Qual a melhor estratégia para diversificar carteira em 2024? Estou pensando em dividir entre ações brasileiras, internacionais e renda fixa.',
-      category: 'Investimentos',
-      likes: 45,
-      replies: [],
-      time: '2 horas atrás',
-      liked: false
-    }
-  ]);
-  
-  const [connections, setConnections] = useState<Connection[]>([
-    {
-      id: '1',
-      name: 'Carlos Silva',
-      initials: 'CS',
-      status: 'connected',
-      lastMessage: 'Ótima análise sobre as ações!',
-      lastMessageTime: '1h',
-      unreadCount: 2
-    },
-    {
-      id: '2',
-      name: 'Ana Costa',
-      initials: 'AC',
-      status: 'pending'
-    }
-  ]);
-  
-  const [chatMessages, setChatMessages] = useState<{ [key: string]: ChatMessage[] }>({
-    '1': [
-      {
-        id: '1',
-        sender: 'Carlos Silva',
-        content: 'Oi! Vi seu post sobre diversificação. Muito interessante!',
-        time: '2h',
-        type: 'received'
-      },
-      {
-        id: '2',
-        sender: 'Você',
-        content: 'Obrigado! O que você acha da estratégia?',
-        time: '1h',
-        type: 'sent'
-      }
-    ]
-  });
-  
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [chatMessages, setChatMessages] = useState<{ [key: string]: ChatMessage[] }>({});
   const [newPostContent, setNewPostContent] = useState('');
   const [newPostCategory, setNewPostCategory] = useState('Geral');
   const [newPostImage, setNewPostImage] = useState<string>('');
@@ -119,8 +79,96 @@ const Community = () => {
   const [showNewPost, setShowNewPost] = useState(false);
   const [showConnections, setShowConnections] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
 
-  // Funções
+  // Load user profile
+  useEffect(() => {
+    if (user) {
+      loadUserProfile();
+    }
+  }, [user]);
+
+  const loadUserProfile = async () => {
+    if (!user) return;
+    
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (data) {
+      setUserProfile(data);
+    }
+  };
+
+  // Load posts
+  useEffect(() => {
+    loadPosts();
+    loadConnections();
+  }, []);
+
+  const loadPosts = async () => {
+    const { data: postsData, error } = await supabase
+      .from('posts')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error loading posts:', error);
+      return;
+    }
+
+    // Load replies for each post
+    if (postsData) {
+      const postsWithReplies = await Promise.all(
+        postsData.map(async (post) => {
+          const { data: repliesData } = await supabase
+            .from('replies')
+            .select('*')
+            .eq('post_id', post.id)
+            .order('created_at', { ascending: true });
+
+          // Check if user liked the post
+          let liked = false;
+          if (user) {
+            const { data: likeData } = await supabase
+              .from('post_likes')
+              .select('id')
+              .eq('post_id', post.id)
+              .eq('user_id', user.id)
+              .single();
+            liked = !!likeData;
+          }
+
+          return {
+            ...post,
+            replies: repliesData || [],
+            liked
+          };
+        })
+      );
+
+      setPosts(postsWithReplies);
+    }
+  };
+
+  const loadConnections = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('connections')
+      .select('*')
+      .or(`user_id.eq.${user.id},connected_user_id.eq.${user.id}`);
+
+    if (error) {
+      console.error('Error loading connections:', error);
+      return;
+    }
+
+    setConnections(data as Connection[] || []);
+  };
+
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -132,33 +180,44 @@ const Community = () => {
     }
   };
 
-  const createPost = () => {
-    if (!newPostContent.trim()) {
+  const createPost = async () => {
+    if (!newPostContent.trim() || !user || !userProfile) {
       toast({
         title: "Erro",
-        description: "O conteúdo do post não pode estar vazio",
+        description: "Você precisa estar logado para criar posts",
         variant: "destructive"
       });
       return;
     }
 
-    const newPost: Post = {
-      id: Date.now().toString(),
-      author: 'Você',
-      initials: 'VC',
-      content: newPostContent,
-      image: newPostImage || undefined,
-      category: newPostCategory,
-      likes: 0,
-      replies: [],
-      time: 'agora',
-      liked: false
-    };
+    const initials = userProfile.display_name
+      ? userProfile.display_name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
+      : 'VC';
 
-    setPosts([newPost, ...posts]);
+    const { error } = await supabase
+      .from('posts')
+      .insert({
+        user_id: user.id,
+        author_name: userProfile.display_name || userProfile.username || 'Usuário',
+        author_initials: initials,
+        content: newPostContent,
+        image_url: newPostImage || null,
+        category: newPostCategory
+      });
+
+    if (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao criar post",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setNewPostContent('');
     setNewPostImage('');
     setShowNewPost(false);
+    loadPosts();
     
     toast({
       title: "Sucesso!",
@@ -166,35 +225,82 @@ const Community = () => {
     });
   };
 
-  const toggleLike = (postId: string) => {
-    setPosts(posts.map(post => 
-      post.id === postId 
-        ? { ...post, liked: !post.liked, likes: post.liked ? post.likes - 1 : post.likes + 1 }
-        : post
-    ));
+  const toggleLike = async (postId: string) => {
+    if (!user) {
+      toast({
+        title: "Erro",
+        description: "Você precisa estar logado para curtir posts",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    if (post.liked) {
+      // Remove like
+      await supabase
+        .from('post_likes')
+        .delete()
+        .eq('post_id', postId)
+        .eq('user_id', user.id);
+
+      await supabase
+        .from('posts')
+        .update({ likes_count: Math.max(0, post.likes_count - 1) })
+        .eq('id', postId);
+    } else {
+      // Add like
+      await supabase
+        .from('post_likes')
+        .insert({ post_id: postId, user_id: user.id });
+
+      await supabase
+        .from('posts')
+        .update({ likes_count: post.likes_count + 1 })
+        .eq('id', postId);
+    }
+
+    loadPosts();
   };
 
-  const addReply = (postId: string) => {
-    if (!replyContent.trim()) return;
+  const addReply = async (postId: string) => {
+    if (!replyContent.trim() || !user || !userProfile) {
+      toast({
+        title: "Erro",
+        description: "Você precisa estar logado para responder",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    const newReply: Reply = {
-      id: Date.now().toString(),
-      author: 'Você',
-      initials: 'VC',
-      content: replyContent,
-      time: 'agora',
-      likes: 0,
-      liked: false
-    };
+    const initials = userProfile.display_name
+      ? userProfile.display_name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
+      : 'VC';
 
-    setPosts(posts.map(post => 
-      post.id === postId 
-        ? { ...post, replies: [...post.replies, newReply] }
-        : post
-    ));
-    
+    const { error } = await supabase
+      .from('replies')
+      .insert({
+        post_id: postId,
+        user_id: user.id,
+        author_name: userProfile.display_name || userProfile.username || 'Usuário',
+        author_initials: initials,
+        content: replyContent
+      });
+
+    if (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao adicionar resposta",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setReplyContent('');
     setReplyingTo('');
+    loadPosts();
     
     toast({
       title: "Resposta adicionada!",
@@ -202,51 +308,60 @@ const Community = () => {
     });
   };
 
-  const sendConnectionRequest = (userId: string) => {
-    setConnections(connections.map(conn => 
-      conn.id === userId ? { ...conn, status: 'pending' as const } : conn
-    ));
-    
-    toast({
-      title: "Solicitação enviada!",
-      description: "Solicitação de conexão enviada com sucesso"
-    });
-  };
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !selectedConnection || !user) return;
 
-  const acceptConnection = (userId: string) => {
-    setConnections(connections.map(conn => 
-      conn.id === userId ? { ...conn, status: 'connected' as const } : conn
-    ));
-    
-    toast({
-      title: "Conexão aceita!",
-      description: "Agora vocês estão conectados"
-    });
-  };
+    const { error } = await supabase
+      .from('messages')
+      .insert({
+        sender_id: user.id,
+        receiver_id: selectedConnection,
+        content: newMessage
+      });
 
-  const sendMessage = () => {
-    if (!newMessage.trim() || !selectedConnection) return;
+    if (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao enviar mensagem",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    const message: ChatMessage = {
-      id: Date.now().toString(),
-      sender: 'Você',
-      content: newMessage,
-      time: 'agora',
-      type: 'sent'
-    };
-
-    setChatMessages(prev => ({
-      ...prev,
-      [selectedConnection]: [...(prev[selectedConnection] || []), message]
-    }));
-    
     setNewMessage('');
+    loadMessages(selectedConnection);
     
     toast({
       title: "Mensagem enviada!",
       description: "Sua mensagem foi enviada"
     });
   };
+
+  const loadMessages = async (connectionId: string) => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .or(`and(sender_id.eq.${user.id},receiver_id.eq.${connectionId}),and(sender_id.eq.${connectionId},receiver_id.eq.${user.id})`)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error loading messages:', error);
+      return;
+    }
+
+    setChatMessages(prev => ({
+      ...prev,
+      [connectionId]: data || []
+    }));
+  };
+
+  useEffect(() => {
+    if (selectedConnection) {
+      loadMessages(selectedConnection);
+    }
+  }, [selectedConnection]);
 
   const topContributors = [
     {
@@ -285,6 +400,20 @@ const Community = () => {
       "Geral": "bg-muted text-muted-foreground",
     };
     return colors[category] || "bg-muted text-muted-foreground";
+  };
+
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'agora';
+    if (diffMins < 60) return `${diffMins}min atrás`;
+    if (diffHours < 24) return `${diffHours}h atrás`;
+    return `${diffDays}d atrás`;
   };
 
   return (
@@ -423,7 +552,7 @@ const Community = () => {
                 <DialogTrigger asChild>
                   <Button variant="outline">
                     <UserPlus className="h-4 w-4 mr-2" />
-                    Conexões
+                    Conexões ({connections.length})
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
@@ -435,26 +564,22 @@ const Community = () => {
                       <div key={connection.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex items-center gap-3">
                           <Avatar>
-                            <AvatarFallback>{connection.initials}</AvatarFallback>
+                            <AvatarFallback>US</AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="font-medium">{connection.name}</div>
+                            <div className="font-medium">Usuário</div>
                             <div className="text-sm text-muted-foreground">
                               {connection.status === 'connected' ? 'Conectado' : 'Pendente'}
                             </div>
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          {connection.status === 'pending' ? (
-                            <Button size="sm" onClick={() => acceptConnection(connection.id)}>
-                              Aceitar
-                            </Button>
-                          ) : (
+                          {connection.status === 'connected' && (
                             <Button 
                               size="sm" 
                               variant="outline"
                               onClick={() => {
-                                setSelectedConnection(connection.id);
+                                setSelectedConnection(connection.connected_user_id);
                                 setShowChat(true);
                                 setShowConnections(false);
                               }}
@@ -474,22 +599,22 @@ const Community = () => {
                   <DialogContent className="max-w-md h-[500px] flex flex-col">
                     <DialogHeader>
                       <DialogTitle>
-                        Chat com {connections.find(c => c.id === selectedConnection)?.name}
+                        Chat
                       </DialogTitle>
                     </DialogHeader>
                     <div className="flex-1 overflow-y-auto space-y-3 p-4">
                       {(chatMessages[selectedConnection] || []).map((message) => (
                         <div
                           key={message.id}
-                          className={`flex ${message.type === 'sent' ? 'justify-end' : 'justify-start'}`}
+                          className={`flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
                         >
                           <div className={`max-w-[80%] p-3 rounded-lg ${
-                            message.type === 'sent' 
+                            message.sender_id === user?.id
                               ? 'bg-primary text-primary-foreground' 
                               : 'bg-muted'
                           }`}>
                             <div className="text-sm">{message.content}</div>
-                            <div className="text-xs opacity-70 mt-1">{message.time}</div>
+                            <div className="text-xs opacity-70 mt-1">{formatTime(message.created_at)}</div>
                           </div>
                         </div>
                       ))}
@@ -499,9 +624,14 @@ const Community = () => {
                         placeholder="Digite sua mensagem..."
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            sendMessage();
+                          }
+                        }}
                       />
-                      <Button onClick={sendMessage}>
+                      <Button onClick={sendMessage} size="icon">
                         <Send className="h-4 w-4" />
                       </Button>
                     </div>
@@ -510,149 +640,96 @@ const Community = () => {
               )}
             </div>
 
-            {/* Posts */}
-            <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-foreground">Posts da Comunidade</h3>
-              
+            {/* Posts Feed */}
+            <div className="space-y-6">
               {posts.map((post) => (
-                <Card key={post.id} className="group hover:shadow-warm transition-all duration-300">
-                  <CardContent className="p-6">
+                <Card key={post.id}>
+                  <CardHeader>
                     <div className="flex items-start gap-4">
-                      <Avatar className="h-10 w-10">
-                        <AvatarFallback className="bg-primary text-primary-foreground font-medium">
-                          {post.initials}
+                      <Avatar>
+                        <AvatarFallback className="bg-gradient-warm text-white">
+                          {post.author_initials}
                         </AvatarFallback>
                       </Avatar>
-                      
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="font-semibold text-foreground">{post.author}</span>
-                          <Badge className={getCategoryColor(post.category)}>
-                            {post.category}
-                          </Badge>
-                          <span className="text-sm text-muted-foreground">{post.time}</span>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold">{post.author_name}</span>
+                          <span className="text-sm text-muted-foreground">• {formatTime(post.created_at)}</span>
                         </div>
-                        
-                        <p className="text-foreground mb-3">{post.content}</p>
-                        
-                        {post.image && (
-                          <img 
-                            src={post.image} 
-                            alt="Post image" 
-                            className="max-h-64 rounded-lg mb-3 object-cover"
-                          />
-                        )}
-                        
-                        <div className="flex items-center gap-4 mb-4">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toggleLike(post.id)}
-                            className={post.liked ? 'text-red-500' : ''}
-                          >
-                            <Heart className={`h-4 w-4 mr-1 ${post.liked ? 'fill-current' : ''}`} />
-                            {post.likes}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setReplyingTo(replyingTo === post.id ? '' : post.id)}
-                          >
-                            <MessageCircle className="h-4 w-4 mr-1" />
-                            {post.replies.length}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => sendConnectionRequest('new-user')}
-                          >
-                            <UserPlus className="h-4 w-4 mr-1" />
-                            Conectar
-                          </Button>
-                        </div>
-                        
-                        {/* Respostas */}
-                        {post.replies.length > 0 && (
-                          <div className="space-y-3 border-l-2 border-muted pl-4 ml-4">
-                            {post.replies.map((reply) => (
-                              <div key={reply.id} className="flex items-start gap-3">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">
-                                    {reply.initials}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="font-medium text-sm">{reply.author}</span>
-                                    <span className="text-xs text-muted-foreground">{reply.time}</span>
-                                  </div>
-                                  <p className="text-sm text-foreground mb-2">{reply.content}</p>
-                                  {reply.image && (
-                                    <img 
-                                      src={reply.image} 
-                                      alt="Reply image" 
-                                      className="max-h-32 rounded-md mb-2 object-cover"
-                                    />
-                                  )}
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-xs"
-                                  >
-                                    <Heart className="h-3 w-3 mr-1" />
-                                    {reply.likes}
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        
-                        {/* Formulário de resposta */}
-                        {replyingTo === post.id && (
-                          <div className="mt-4 space-y-3 border-l-2 border-primary pl-4 ml-4">
-                            <Textarea
-                              placeholder="Escreva sua resposta..."
-                              value={replyContent}
-                              onChange={(e) => setReplyContent(e.target.value)}
-                              className="min-h-[80px]"
-                            />
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => fileInputRef.current?.click()}
-                              >
-                                <Image className="h-4 w-4 mr-1" />
-                                Imagem
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={() => addReply(post.id)}
-                              >
-                                Responder
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setReplyingTo('')}
-                              >
-                                Cancelar
-                              </Button>
-                            </div>
-                          </div>
-                        )}
+                        <Badge className={getCategoryColor(post.category)} variant="secondary">
+                          {post.category}
+                        </Badge>
                       </div>
                     </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <p className="text-foreground">{post.content}</p>
+                    {post.image_url && (
+                      <img src={post.image_url} alt="Post" className="rounded-lg max-h-96 w-full object-cover" />
+                    )}
+                    
+                    <div className="flex items-center gap-4 pt-2 border-t">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => toggleLike(post.id)}
+                        className={post.liked ? 'text-red-500' : ''}
+                      >
+                        <Heart className={`h-4 w-4 mr-1 ${post.liked ? 'fill-current' : ''}`} />
+                        {post.likes_count}
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setReplyingTo(post.id)}
+                      >
+                        <MessageCircle className="h-4 w-4 mr-1" />
+                        {post.replies?.length || 0}
+                      </Button>
+                    </div>
+
+                    {/* Replies */}
+                    {post.replies && post.replies.length > 0 && (
+                      <div className="space-y-3 pl-4 border-l-2 border-muted">
+                        {post.replies.map((reply) => (
+                          <div key={reply.id} className="flex gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback>{reply.author_initials}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-medium text-sm">{reply.author_name}</span>
+                                <span className="text-xs text-muted-foreground">{formatTime(reply.created_at)}</span>
+                              </div>
+                              <p className="text-sm">{reply.content}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Reply Input */}
+                    {replyingTo === post.id && (
+                      <div className="flex gap-2 pl-4">
+                        <Input
+                          placeholder="Escreva uma resposta..."
+                          value={replyContent}
+                          onChange={(e) => setReplyContent(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              addReply(post.id);
+                            }
+                          }}
+                        />
+                        <Button onClick={() => addReply(post.id)} size="sm">
+                          Responder
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
-            </div>
-
-            <div className="text-center">
-              <Button variant="outline" className="px-8">
-                Ver mais discussões
-              </Button>
             </div>
           </div>
 
@@ -665,69 +742,47 @@ const Community = () => {
                   <Award className="h-5 w-5 text-primary" />
                   Top Contribuidores
                 </CardTitle>
-                <CardDescription>
-                  Membros mais ativos da comunidade
-                </CardDescription>
+                <CardDescription>Membros mais ativos esta semana</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {topContributors.map((contributor, index) => (
                   <div key={index} className="flex items-center gap-3">
-                    <Avatar className={`h-10 w-10 ${contributor.color}`}>
-                      <AvatarFallback className="text-white font-medium">
+                    <Avatar>
+                      <AvatarFallback className={contributor.color}>
                         {contributor.initials}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
-                      <div className="font-medium text-foreground">{contributor.name}</div>
+                      <div className="font-medium">{contributor.name}</div>
                       <div className="text-sm text-muted-foreground">{contributor.expertise}</div>
                     </div>
-                    <div className="text-right text-sm">
-                      <div className="font-medium text-foreground">{contributor.posts}</div>
-                      <div className="text-muted-foreground">posts</div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium">{contributor.posts}</div>
+                      <div className="text-xs text-muted-foreground">posts</div>
                     </div>
                   </div>
                 ))}
               </CardContent>
             </Card>
 
-            {/* Community Stats */}
+            {/* Categories */}
             <Card>
               <CardHeader>
-                <CardTitle>Estatísticas</CardTitle>
+                <CardTitle>Categorias Populares</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Membros</span>
-                  <span className="font-medium text-foreground">1.234</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Discussões</span>
-                  <span className="font-medium text-foreground">567</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Respostas</span>
-                  <span className="font-medium text-foreground">2.890</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Online agora</span>
-                  <span className="font-medium text-primary">89</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Popular Tags */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Tags Populares</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {["Ações", "FIIs", "Cripto", "Renda Fixa", "Iniciantes", "Análise", "Dúvidas", "ETFs"].map((tag, index) => (
-                    <Badge key={index} variant="secondary" className="cursor-pointer hover:bg-secondary/80">
-                      #{tag}
+              <CardContent className="space-y-2">
+                {['Investimentos', 'FIIs', 'Iniciantes', 'Ações', 'Cripto', 'Geral'].map((category) => (
+                  <Button
+                    key={category}
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => setNewPostCategory(category)}
+                  >
+                    <Badge className={getCategoryColor(category)} variant="secondary">
+                      {category}
                     </Badge>
-                  ))}
-                </div>
+                  </Button>
+                ))}
               </CardContent>
             </Card>
           </div>
