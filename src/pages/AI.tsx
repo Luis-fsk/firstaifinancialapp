@@ -14,6 +14,50 @@ interface Message {
   timestamp: Date;
 }
 
+const formatMessage = (text: string): string => {
+  // Replace bold text (**text**)
+  let formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  
+  // Replace headings (## text)
+  formatted = formatted.replace(/^## (.+)$/gm, '<h2 class="text-base font-semibold mt-3 mb-2">$1</h2>');
+  
+  // Replace tables (lines with |)
+  // Match lines that start and end with |
+  formatted = formatted.replace(/(\|[^\n]+\|\n?)+/g, (match) => {
+    const rows = match.trim().split('\n').filter(row => row.trim() && row.includes('|'));
+    if (rows.length === 0) return match;
+    
+    let html = '<div class="overflow-x-auto my-2"><table class="border-collapse w-full min-w-full"><tbody>';
+    
+    rows.forEach((row, index) => {
+      // Skip separator rows (those with just |---|---|)
+      if (row.match(/^\|[\s:-]+\|$/)) return;
+      
+      const cells = row.split('|').filter(cell => cell.trim());
+      html += '<tr>';
+      cells.forEach(cell => {
+        const trimmedCell = cell.trim();
+        // First row as header
+        if (index === 0) {
+          html += `<th class="border border-border px-2 py-1 font-semibold bg-muted/50">${trimmedCell}</th>`;
+        } else {
+          html += `<td class="border border-border px-2 py-1">${trimmedCell}</td>`;
+        }
+      });
+      html += '</tr>';
+    });
+    
+    html += '</tbody></table></div>';
+    return html;
+  });
+  
+  // Preserve line breaks
+  formatted = formatted.replace(/\n/g, '<br>');
+  
+  return formatted;
+};
+
+
 const AI = () => {
   const navigate = useNavigate();
   const { sessionId, user } = useAuth();
@@ -234,32 +278,16 @@ const AI = () => {
                           </div>
                         )}
                          <div
-                          className={`max-w-[80%] p-3 rounded-lg ${
+                          className={`max-w-[80%] p-3 rounded-lg break-words ${
                             message.isUser
                               ? 'bg-primary text-primary-foreground'
                               : 'bg-muted text-muted-foreground'
                           }`}
                         >
                           <div 
-                            className="text-sm whitespace-pre-wrap prose prose-sm max-w-none dark:prose-invert"
+                            className="text-sm prose prose-sm max-w-none dark:prose-invert [&_table]:text-xs [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_td]:border [&_td]:border-border overflow-x-auto"
                             dangerouslySetInnerHTML={{ 
-                              __html: message.text
-                                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                                .replace(/^## (.+)$/gm, '<h2 class="text-base font-semibold mt-3 mb-2">$1</h2>')
-                                .replace(/\n\|(.+)\|\n/g, (match) => {
-                                  const rows = match.trim().split('\n').filter(row => row.trim());
-                                  let html = '<table class="border-collapse w-full my-2"><tbody>';
-                                  rows.forEach(row => {
-                                    const cells = row.split('|').filter(cell => cell.trim());
-                                    html += '<tr>';
-                                    cells.forEach(cell => {
-                                      html += `<td class="border border-border px-2 py-1">${cell.trim()}</td>`;
-                                    });
-                                    html += '</tr>';
-                                  });
-                                  html += '</tbody></table>';
-                                  return html;
-                                })
+                              __html: formatMessage(message.text)
                             }}
                           />
                           <span className="text-xs opacity-70 mt-1 block">
