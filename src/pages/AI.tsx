@@ -263,10 +263,10 @@ const AI = () => {
                 </CardDescription>
               </CardHeader>
               
-              <CardContent className="flex-1 flex flex-col p-4">
+              <CardContent className="flex-1 flex flex-col p-4 overflow-hidden">
                 {/* Messages Area */}
-                <ScrollArea className="flex-1 mb-4 pr-4">
-                  <div className="space-y-4">
+                <ScrollArea className="flex-1 mb-4 pr-4 h-full">
+                  <div className="space-y-4 pb-4">
                     {messages.map((message) => (
                       <div
                         key={message.id}
@@ -277,15 +277,16 @@ const AI = () => {
                             <Bot className="h-4 w-4 text-white" />
                           </div>
                         )}
-                         <div
-                          className={`max-w-[80%] p-3 rounded-lg break-words ${
+                        <div
+                          className={`max-w-[80%] p-3 rounded-lg break-words overflow-hidden ${
                             message.isUser
                               ? 'bg-primary text-primary-foreground'
                               : 'bg-muted text-muted-foreground'
                           }`}
                         >
                           <div 
-                            className="text-sm prose prose-sm max-w-none dark:prose-invert [&_table]:text-xs [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_td]:border [&_td]:border-border overflow-x-auto"
+                            className="text-sm prose prose-sm max-w-none dark:prose-invert overflow-x-auto [&_table]:text-xs [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_td]:border [&_td]:border-border [&_th]:px-2 [&_th]:py-1 [&_th]:border [&_th]:border-border [&_strong]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-2"
+                            style={{ wordWrap: 'break-word', overflowWrap: 'break-word' }}
                             dangerouslySetInnerHTML={{ 
                               __html: formatMessage(message.text)
                             }}
