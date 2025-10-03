@@ -219,7 +219,7 @@ const AI = () => {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Chat Interface */}
           <div className="lg:col-span-2">
-            <Card className="h-[600px] flex flex-col">
+            <Card className="h-[calc(100vh-16rem)] max-h-[600px] flex flex-col">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Bot className="h-5 w-5 text-primary" />
@@ -244,14 +244,35 @@ const AI = () => {
                             <Bot className="h-4 w-4 text-white" />
                           </div>
                         )}
-                        <div
+                         <div
                           className={`max-w-[80%] p-3 rounded-lg ${
                             message.isUser
                               ? 'bg-primary text-primary-foreground'
                               : 'bg-muted text-muted-foreground'
                           }`}
                         >
-                          <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+                          <div 
+                            className="text-sm whitespace-pre-wrap prose prose-sm max-w-none dark:prose-invert"
+                            dangerouslySetInnerHTML={{ 
+                              __html: message.text
+                                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                .replace(/^## (.+)$/gm, '<h2 class="text-base font-semibold mt-3 mb-2">$1</h2>')
+                                .replace(/\n\|(.+)\|\n/g, (match) => {
+                                  const rows = match.trim().split('\n').filter(row => row.trim());
+                                  let html = '<table class="border-collapse w-full my-2"><tbody>';
+                                  rows.forEach(row => {
+                                    const cells = row.split('|').filter(cell => cell.trim());
+                                    html += '<tr>';
+                                    cells.forEach(cell => {
+                                      html += `<td class="border border-border px-2 py-1">${cell.trim()}</td>`;
+                                    });
+                                    html += '</tr>';
+                                  });
+                                  html += '</tbody></table>';
+                                  return html;
+                                })
+                            }}
+                          />
                           <span className="text-xs opacity-70 mt-1 block">
                             {message.timestamp.toLocaleTimeString('pt-BR', { 
                               hour: '2-digit', 
