@@ -20,7 +20,7 @@ const AI = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      text: `Olá! 👋 Seu Session ID é: ${sessionId || 'carregando...'}. Como posso te ajudar hoje? Sugestão, pergunte sobre: Renda Fixa, Perfis de Investimento ou Cryptomoedas.`,
+      text: `Olá! 👋 Como posso te ajudar hoje? Sugestão, pergunte sobre: Renda Fixa, Perfis de Investimento ou Cryptomoedas.`,
       isUser: false,
       timestamp: new Date()
     }
@@ -29,17 +29,6 @@ const AI = () => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Update welcome message when sessionId is available
-  useEffect(() => {
-    if (sessionId && messages.length === 1) {
-      setMessages([{
-        id: "1",
-        text: `Olá! 👋 Seu Session ID é: ${sessionId}. Como posso te ajudar hoje? Sugestão, pergunte sobre: Renda Fixa, Perfis de Investimento ou Cryptomoedas.`,
-        isUser: false,
-        timestamp: new Date()
-      }]);
-    }
-  }, [sessionId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -58,7 +47,7 @@ const AI = () => {
 
       console.log('Enviando para webhook:', payload);
 
-      const response = await fetch("https://eleefe.app.n8n.cloud/webhook-test/financial_ai", {
+      const response = await fetch("https://eleefe.app.n8n.cloud/webhook/financial_ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
