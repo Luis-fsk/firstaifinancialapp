@@ -11,6 +11,7 @@ import { Users, ArrowLeft, MessageCircle, Heart, Share2, TrendingUp, Award, Cloc
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { UserSearch } from "@/components/UserSearch";
 
 interface Post {
   id: string;
@@ -80,6 +81,8 @@ const Community = () => {
   const [showConnections, setShowConnections] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const [selectedUserProfile, setSelectedUserProfile] = useState<any>(null);
 
   // Load user profile
   useEffect(() => {
@@ -306,6 +309,61 @@ const Community = () => {
       title: "Resposta adicionada!",
       description: "Sua resposta foi postada com sucesso"
     });
+  };
+
+  const viewUserProfile = async (userId: string) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) throw error;
+
+      if (profile) {
+        setSelectedUserProfile(profile);
+        setShowUserProfile(true);
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar perfil do usuário",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const connectWithUser = async (targetUserId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('connections')
+        .insert({
+          user_id: user.id,
+          connected_user_id: targetUserId,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso!",
+        description: "Solicitação de conexão enviada"
+      });
+
+      loadConnections();
+      setShowUserProfile(false);
+    } catch (error) {
+      console.error('Error sending connection request:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao enviar solicitação de conexão",
+        variant: "destructive"
+      });
+    }
   };
 
   const sendMessage = async () => {
@@ -641,19 +699,34 @@ const Community = () => {
             </div>
 
             {/* Posts Feed */}
-            <div className="space-y-6">
+          <div className="space-y-6">
+            {/* User Search */}
+            <UserSearch 
+              currentUserId={user?.id} 
+              onConnectionCreated={loadConnections}
+            />
+
+            {/* Create Post Dialog */}
               {posts.map((post) => (
                 <Card key={post.id}>
                   <CardHeader>
                     <div className="flex items-start gap-4">
-                      <Avatar>
+                      <Avatar 
+                        className="cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                        onClick={() => viewUserProfile(post.user_id)}
+                      >
                         <AvatarFallback className="bg-gradient-warm text-white">
                           {post.author_initials}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold">{post.author_name}</span>
+                          <span 
+                            className="font-semibold cursor-pointer hover:text-primary transition-colors"
+                            onClick={() => viewUserProfile(post.user_id)}
+                          >
+                            {post.author_name}
+                          </span>
                           <span className="text-sm text-muted-foreground">• {formatTime(post.created_at)}</span>
                         </div>
                         <Badge className={getCategoryColor(post.category)} variant="secondary">
@@ -731,6 +804,60 @@ const Community = () => {
                 </Card>
               ))}
             </div>
+
+            {/* User Profile Dialog */}
+            {selectedUserProfile && (
+              <Dialog open={showUserProfile} onOpenChange={setShowUserProfile}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Perfil do Usuário</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-16 w-16">
+                        <AvatarFallback className="bg-primary text-white text-xl">
+                          {selectedUserProfile.display_name
+                            ? selectedUserProfile.display_name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
+                            : 'US'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h3 className="text-lg font-semibold">{selectedUserProfile.display_name || selectedUserProfile.username}</h3>
+                        <p className="text-sm text-muted-foreground">@{selectedUserProfile.username}</p>
+                      </div>
+                    </div>
+                    
+                    {selectedUserProfile.bio && (
+                      <div>
+                        <h4 className="font-medium mb-1">Bio</h4>
+                        <p className="text-sm text-muted-foreground">{selectedUserProfile.bio}</p>
+                      </div>
+                    )}
+
+                    <div className="flex gap-4 text-sm">
+                      <div>
+                        <span className="font-bold">{selectedUserProfile.posts_count || 0}</span>
+                        <span className="text-muted-foreground ml-1">Posts</span>
+                      </div>
+                      <div>
+                        <span className="font-bold">{selectedUserProfile.connections_count || 0}</span>
+                        <span className="text-muted-foreground ml-1">Conexões</span>
+                      </div>
+                    </div>
+
+                    {user && user.id !== selectedUserProfile.user_id && (
+                      <Button 
+                        className="w-full"
+                        onClick={() => connectWithUser(selectedUserProfile.user_id)}
+                      >
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Conectar
+                      </Button>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
 
           {/* Sidebar */}
