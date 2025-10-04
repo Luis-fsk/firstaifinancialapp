@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, PlusCircle, DollarSign, TrendingUp, Target, Award } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { toast } from "sonner";
@@ -51,35 +52,44 @@ const Finances = () => {
     location: ''
   });
 
-  const [monthlyGoals] = useState<Goal[]>([
-    {
-      id: '1',
-      title: 'Reduzir gastos fixos',
-      description: 'Economize 10% nos gastos fixos este mês',
-      category: 'fixed',
-      target: 500,
-      progress: 150,
-      isCompleted: false
-    },
-    {
-      id: '2',
-      title: 'Controlar gastos variáveis',
-      description: 'Mantenha gastos variáveis abaixo de R$ 800',
-      category: 'variable',
-      target: 800,
-      progress: 620,
-      isCompleted: false
-    },
-    {
-      id: '3',
-      title: 'Aumentar investimentos',
-      description: 'Invista pelo menos R$ 1000 este mês',
-      category: 'investment',
-      target: 1000,
-      progress: 750,
-      isCompleted: false
-    }
-  ]);
+  // Calcular metas baseadas nas despesas reais
+  const calculateGoals = (): Goal[] => {
+    const fixed = expenses.filter(exp => exp.category === 'fixed').reduce((sum, exp) => sum + exp.amount, 0);
+    const variable = expenses.filter(exp => exp.category === 'variable').reduce((sum, exp) => sum + exp.amount, 0);
+    const investment = expenses.filter(exp => exp.category === 'investment').reduce((sum, exp) => sum + exp.amount, 0);
+
+    return [
+      {
+        id: '1',
+        title: 'Reduzir gastos fixos',
+        description: 'Economize 10% nos gastos fixos este mês',
+        category: 'fixed',
+        target: quizAnswers.fixedExpenses * 0.9, // Meta: 90% do planejado
+        progress: fixed,
+        isCompleted: fixed <= quizAnswers.fixedExpenses * 0.9
+      },
+      {
+        id: '2',
+        title: 'Controlar gastos variáveis',
+        description: `Mantenha gastos variáveis abaixo de R$ ${quizAnswers.variableExpenses.toFixed(2)}`,
+        category: 'variable',
+        target: quizAnswers.variableExpenses,
+        progress: variable,
+        isCompleted: variable <= quizAnswers.variableExpenses
+      },
+      {
+        id: '3',
+        title: 'Aumentar investimentos',
+        description: `Invista pelo menos R$ ${quizAnswers.investments.toFixed(2)} este mês`,
+        category: 'investment',
+        target: quizAnswers.investments,
+        progress: investment,
+        isCompleted: investment >= quizAnswers.investments
+      }
+    ];
+  };
+
+  const monthlyGoals = calculateGoals();
 
   // Load data from localStorage
   useEffect(() => {
@@ -129,8 +139,48 @@ const Finances = () => {
     setExpenses(updatedExpenses);
     localStorage.setItem('financeExpenses', JSON.stringify(updatedExpenses));
     
+    // Salvar dados financeiros para o Dashboard
+    const goals = calculateGoalsForExpenses(updatedExpenses);
+    localStorage.setItem('financeGoals', JSON.stringify(goals));
+    
     setNewExpense({ amount: '', category: '', description: '', location: '' });
     toast.success("Gasto adicionado com sucesso!");
+  };
+
+  const calculateGoalsForExpenses = (expensesList: Expense[]): Goal[] => {
+    const fixed = expensesList.filter(exp => exp.category === 'fixed').reduce((sum, exp) => sum + exp.amount, 0);
+    const variable = expensesList.filter(exp => exp.category === 'variable').reduce((sum, exp) => sum + exp.amount, 0);
+    const investment = expensesList.filter(exp => exp.category === 'investment').reduce((sum, exp) => sum + exp.amount, 0);
+
+    return [
+      {
+        id: '1',
+        title: 'Reduzir gastos fixos',
+        description: 'Economize 10% nos gastos fixos este mês',
+        category: 'fixed',
+        target: quizAnswers.fixedExpenses * 0.9,
+        progress: fixed,
+        isCompleted: fixed <= quizAnswers.fixedExpenses * 0.9
+      },
+      {
+        id: '2',
+        title: 'Controlar gastos variáveis',
+        description: `Mantenha gastos variáveis abaixo de R$ ${quizAnswers.variableExpenses.toFixed(2)}`,
+        category: 'variable',
+        target: quizAnswers.variableExpenses,
+        progress: variable,
+        isCompleted: variable <= quizAnswers.variableExpenses
+      },
+      {
+        id: '3',
+        title: 'Aumentar investimentos',
+        description: `Invista pelo menos R$ ${quizAnswers.investments.toFixed(2)} este mês`,
+        category: 'investment',
+        target: quizAnswers.investments,
+        progress: investment,
+        isCompleted: investment >= quizAnswers.investments
+      }
+    ];
   };
 
   const getExpensesByCategory = () => {
@@ -443,15 +493,10 @@ const Finances = () => {
                         <span>R$ {goal.progress.toFixed(2)}</span>
                         <span>R$ {goal.target.toFixed(2)}</span>
                       </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div 
-                          className={`h-2 rounded-full transition-all ${
-                            goal.category === 'fixed' ? 'bg-blue-500' :
-                            goal.category === 'variable' ? 'bg-red-500' : 'bg-green-500'
-                          }`}
-                          style={{ width: `${Math.min((goal.progress / goal.target) * 100, 100)}%` }}
-                        />
-                      </div>
+                      <Progress 
+                        value={Math.min((goal.progress / goal.target) * 100, 100)} 
+                        className="h-2"
+                      />
                       <p className="text-xs text-muted-foreground">
                         {((goal.progress / goal.target) * 100).toFixed(1)}% concluído
                       </p>

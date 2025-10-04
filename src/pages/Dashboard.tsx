@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Bot, Newspaper, Users, TrendingUp, LogOut, DollarSign, PieChart } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { UserMenu } from "@/components/UserMenu";
+import { FinancialGoalsSummary } from "@/components/FinancialGoalsSummary";
 import growingLogo from "@/assets/growing-logo.png";
 
 const Dashboard = () => {
@@ -146,6 +147,9 @@ const Dashboard = () => {
             );
           })}
         </div>
+
+        {/* Financial Goals Summary */}
+        <FinancialGoalsSummary />
 
         {/* Quick Stats */}
         <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-6">
