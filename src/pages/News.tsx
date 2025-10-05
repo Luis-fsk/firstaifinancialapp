@@ -39,10 +39,14 @@ const News = () => {
     try {
       setLoading(true);
       
-      // First fetch existing news from database
+      // Fetch news from last 7 days only
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
       const { data: existingNews, error: fetchError } = await supabase
         .from('news_articles')
         .select('*')
+        .gte('published_at', sevenDaysAgo.toISOString())
         .order('published_at', { ascending: false });
 
       if (fetchError) {
@@ -55,26 +59,7 @@ const News = () => {
         return;
       }
 
-      // If no news exists or it's been more than a day, fetch new news
-      const shouldFetchNew = !existingNews || existingNews.length === 0 || 
-        (existingNews[0] && new Date().getTime() - new Date(existingNews[0].published_at).getTime() > 24 * 60 * 60 * 1000);
-
-      if (shouldFetchNew) {
-        console.log('Fetching fresh news...');
-        await supabase.functions.invoke('fetch-news');
-        
-        // Refetch after new articles are added
-        const { data: freshNews, error: refetchError } = await supabase
-          .from('news_articles')
-          .select('*')
-          .order('published_at', { ascending: false });
-
-        if (!refetchError && freshNews) {
-          setNewsArticles(freshNews);
-        }
-      } else {
-        setNewsArticles(existingNews || []);
-      }
+      setNewsArticles(existingNews || []);
     } catch (error) {
       console.error('Error in fetchNews:', error);
       toast({
