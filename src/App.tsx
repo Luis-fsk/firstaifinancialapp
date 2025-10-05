@@ -11,6 +11,7 @@ import AI from "./pages/AI";
 import Finances from "./pages/Finances";
 import News from "./pages/News";
 import Community from "./pages/Community";
+import Stocks from "./pages/Stocks";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/finances" element={<Finances />} />
             <Route path="/news" element={<News />} />
             <Route path="/community" element={<Community />} />
+            <Route path="/stocks" element={<Stocks />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

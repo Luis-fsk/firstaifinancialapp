@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bot, Newspaper, Users, TrendingUp, LogOut, DollarSign, PieChart } from "lucide-react";
+import { Bot, Newspaper, Users, TrendingUp, LogOut, DollarSign, PieChart, LineChart } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { UserMenu } from "@/components/UserMenu";
 import { FinancialGoalsSummary } from "@/components/FinancialGoalsSummary";
@@ -50,6 +50,14 @@ const Dashboard = () => {
       path: "/community",
       gradient: "bg-accent",
       textColor: "text-accent-foreground",
+    },
+    {
+      title: "Ações",
+      description: "Análise completa de ações com IA, gráficos e recomendações",
+      icon: LineChart,
+      path: "/stocks",
+      gradient: "bg-gradient-warm",
+      textColor: "text-white",
     },
   ];
 
@@ -115,7 +123,7 @@ const Dashboard = () => {
         </div>
 
         {/* Feature Cards */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6">
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (
