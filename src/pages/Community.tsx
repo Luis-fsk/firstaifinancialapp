@@ -193,6 +193,34 @@ const Community = () => {
       return;
     }
 
+    // Moderate content before posting
+    try {
+      const { data: moderationData, error: moderationError } = await supabase.functions.invoke('moderate-content', {
+        body: { content: newPostContent }
+      });
+
+      if (moderationError) throw moderationError;
+
+      if (moderationData && !moderationData.approved) {
+        toast({
+          title: "Conteúdo bloqueado",
+          description: `Sua postagem foi bloqueada: ${moderationData.reason}`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log('Content moderation passed:', moderationData?.reason);
+    } catch (error) {
+      console.error('Moderation error:', error);
+      toast({
+        title: "Erro na moderação",
+        description: "Não foi possível verificar o conteúdo. Tente novamente.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const initials = userProfile.display_name
       ? userProfile.display_name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
       : 'VC';

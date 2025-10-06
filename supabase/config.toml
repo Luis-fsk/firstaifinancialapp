@@ -58,3 +58,6 @@ verify_jwt = true
 
 [functions.analyze-stock]
 verify_jwt = false
+
+[functions.moderate-content]
+verify_jwt = false
