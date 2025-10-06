@@ -24,24 +24,55 @@ serve(async (req) => {
     console.log('Analyzing stock:', symbol);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const ALPHA_VANTAGE_API_KEY = Deno.env.get('ALPHA_VANTAGE_API_KEY');
+    
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY not configured');
     }
-
-    // Generate mock historical data for the chart (last 30 days)
-    const chartData = [];
-    const basePrice = 50 + Math.random() * 100;
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const variation = (Math.random() - 0.5) * 10;
-      const price = Math.max(basePrice + variation, 1);
-      chartData.push({
-        date: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-        price: parseFloat(price.toFixed(2))
-      });
+    if (!ALPHA_VANTAGE_API_KEY) {
+      throw new Error('ALPHA_VANTAGE_API_KEY not configured');
     }
 
+    // Fetch real stock data from Alpha Vantage
+    console.log('Fetching stock data from Alpha Vantage...');
+    
+    // Get daily time series data
+    const alphaVantageUrl = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+    const stockResponse = await fetch(alphaVantageUrl);
+    
+    if (!stockResponse.ok) {
+      throw new Error(`Alpha Vantage API error: ${stockResponse.status}`);
+    }
+    
+    const stockData = await stockResponse.json();
+    
+    // Check for API errors
+    if (stockData['Error Message']) {
+      return new Response(
+        JSON.stringify({ error: 'Símbolo de ação inválido ou não encontrado' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
+    if (stockData['Note']) {
+      return new Response(
+        JSON.stringify({ error: 'Limite de requisições da API excedido. Tente novamente em 1 minuto.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
+      );
+    }
+    
+    const timeSeries = stockData['Time Series (Daily)'];
+    if (!timeSeries) {
+      throw new Error('Dados de ação não disponíveis');
+    }
+    
+    // Get the last 30 days of data
+    const dates = Object.keys(timeSeries).sort().reverse().slice(0, 30).reverse();
+    const chartData = dates.map(date => ({
+      date: new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      price: parseFloat(parseFloat(timeSeries[date]['4. close']).toFixed(2))
+    }));
+    
     const currentPrice = chartData[chartData.length - 1].price;
 
     // Call Lovable AI for analysis
