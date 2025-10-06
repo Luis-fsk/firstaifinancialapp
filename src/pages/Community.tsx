@@ -366,6 +366,60 @@ const Community = () => {
     }
   };
 
+  const acceptConnection = async (connectionId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('connections')
+        .update({ status: 'connected' })
+        .eq('id', connectionId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso!",
+        description: "Conexão aceita"
+      });
+
+      loadConnections();
+    } catch (error) {
+      console.error('Error accepting connection:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao aceitar conexão",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const rejectConnection = async (connectionId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('connections')
+        .delete()
+        .eq('id', connectionId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso!",
+        description: "Solicitação rejeitada"
+      });
+
+      loadConnections();
+    } catch (error) {
+      console.error('Error rejecting connection:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao rejeitar conexão",
+        variant: "destructive"
+      });
+    }
+  };
+
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedConnection || !user) return;
 
@@ -618,36 +672,64 @@ const Community = () => {
                     <DialogTitle>Minhas Conexões</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
-                    {connections.map((connection) => (
-                      <div key={connection.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarFallback>US</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium">Usuário</div>
-                            <div className="text-sm text-muted-foreground">
-                              {connection.status === 'connected' ? 'Conectado' : 'Pendente'}
+                    {connections.map((connection) => {
+                      const isReceiver = connection.connected_user_id === user?.id;
+                      const isPending = connection.status === 'pending';
+                      
+                      return (
+                        <div key={connection.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarFallback>US</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium">Usuário</div>
+                              <div className="text-sm text-muted-foreground">
+                                {connection.status === 'connected' ? 'Conectado' : 
+                                 isReceiver ? 'Solicitação recebida' : 'Aguardando resposta'}
+                              </div>
                             </div>
                           </div>
+                          <div className="flex gap-2">
+                            {connection.status === 'connected' && (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedConnection(
+                                    connection.user_id === user?.id 
+                                      ? connection.connected_user_id 
+                                      : connection.user_id
+                                  );
+                                  setShowChat(true);
+                                  setShowConnections(false);
+                                }}
+                              >
+                                Chat
+                              </Button>
+                            )}
+                            {isPending && isReceiver && (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  variant="default"
+                                  onClick={() => acceptConnection(connection.id)}
+                                >
+                                  Aceitar
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => rejectConnection(connection.id)}
+                                >
+                                  Rejeitar
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          {connection.status === 'connected' && (
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedConnection(connection.connected_user_id);
-                                setShowChat(true);
-                                setShowConnections(false);
-                              }}
-                            >
-                              Chat
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </DialogContent>
               </Dialog>
