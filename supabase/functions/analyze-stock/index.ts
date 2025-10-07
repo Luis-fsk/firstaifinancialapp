@@ -24,72 +24,65 @@ serve(async (req) => {
     console.log('Analyzing stock:', symbol);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    const ALPHA_VANTAGE_API_KEY = Deno.env.get('ALPHA_VANTAGE_API_KEY');
+    const FINNHUB_API_KEY = Deno.env.get('FINNHUB_API_KEY');
     
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY not configured');
     }
-    if (!ALPHA_VANTAGE_API_KEY) {
-      throw new Error('ALPHA_VANTAGE_API_KEY not configured');
+    if (!FINNHUB_API_KEY) {
+      throw new Error('FINNHUB_API_KEY not configured');
     }
 
-    // Fetch real stock data from Alpha Vantage
-    console.log('Fetching stock data from Alpha Vantage...');
+    console.log('Fetching stock data from Finnhub...');
     
-    // Get daily time series data
-    const alphaVantageUrl = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
-    const stockResponse = await fetch(alphaVantageUrl);
+    // Get current quote
+    const quoteUrl = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
+    const quoteResponse = await fetch(quoteUrl);
     
-    if (!stockResponse.ok) {
-      throw new Error(`Alpha Vantage API error: ${stockResponse.status}`);
+    if (!quoteResponse.ok) {
+      throw new Error(`Finnhub API error: ${quoteResponse.status}`);
     }
     
-    const stockData = await stockResponse.json();
+    const quoteData = await quoteResponse.json();
+    console.log('Finnhub Quote:', JSON.stringify(quoteData));
     
-    console.log('Alpha Vantage Response:', JSON.stringify(stockData).substring(0, 500));
-    
-    // Check for API errors
-    if (stockData['Error Message']) {
-      console.error('Invalid stock symbol:', symbol);
+    if (!quoteData.c || quoteData.c === 0) {
+      console.error('Invalid stock symbol or no data:', symbol);
       return new Response(
-        JSON.stringify({ error: 'Símbolo de ação inválido ou não encontrado' }),
+        JSON.stringify({ error: 'Símbolo de ação inválido ou não encontrado. Use símbolos US como AAPL, TSLA, NVDA, etc.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
     
-    if (stockData['Note']) {
-      console.error('Rate limit hit:', stockData['Note']);
-      return new Response(
-        JSON.stringify({ error: 'Limite de requisições da API excedido. Tente novamente em 1 minuto.' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
-      );
+    const currentPrice = quoteData.c;
+    
+    // Get historical candles (last 30 days)
+    const to = Math.floor(Date.now() / 1000);
+    const from = to - (30 * 24 * 60 * 60); // 30 days ago
+    
+    const candlesUrl = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${FINNHUB_API_KEY}`;
+    const candlesResponse = await fetch(candlesUrl);
+    
+    if (!candlesResponse.ok) {
+      throw new Error(`Finnhub candles API error: ${candlesResponse.status}`);
     }
     
-    if (stockData['Information']) {
-      console.error('API Information message:', stockData['Information']);
-      return new Response(
-        JSON.stringify({ error: 'Limite de requisições da API excedido. A API gratuita permite apenas 25 requisições por dia.' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
-      );
-    }
+    const candlesData = await candlesResponse.json();
+    console.log('Finnhub Candles status:', candlesData.s);
     
-    const timeSeries = stockData['Time Series (Daily)'];
-    if (!timeSeries) {
-      console.error('No time series data available. Full response:', JSON.stringify(stockData));
+    if (candlesData.s !== 'ok') {
+      console.error('No candles data available');
       return new Response(
-        JSON.stringify({ error: 'Dados de ação não disponíveis. Verifique se o símbolo está correto ou tente novamente mais tarde.' }),
+        JSON.stringify({ error: 'Dados históricos não disponíveis para este símbolo.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
     
-    // Get the last 30 days of data
-    const dates = Object.keys(timeSeries).sort().reverse().slice(0, 30).reverse();
-    const chartData = dates.map(date => ({
-      date: new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-      price: parseFloat(parseFloat(timeSeries[date]['4. close']).toFixed(2))
+    // Format chart data
+    const chartData = candlesData.t.map((timestamp: number, index: number) => ({
+      date: new Date(timestamp * 1000).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      price: parseFloat(candlesData.c[index].toFixed(2))
     }));
-    
-    const currentPrice = chartData[chartData.length - 1].price;
 
     // Call Lovable AI for analysis
     const aiPrompt = `Você é um analista financeiro experiente. Analise a ação "${symbol}" e forneça:
