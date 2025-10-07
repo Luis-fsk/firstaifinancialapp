@@ -46,8 +46,11 @@ serve(async (req) => {
     
     const stockData = await stockResponse.json();
     
+    console.log('Alpha Vantage Response:', JSON.stringify(stockData).substring(0, 500));
+    
     // Check for API errors
     if (stockData['Error Message']) {
+      console.error('Invalid stock symbol:', symbol);
       return new Response(
         JSON.stringify({ error: 'Símbolo de ação inválido ou não encontrado' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
@@ -55,15 +58,28 @@ serve(async (req) => {
     }
     
     if (stockData['Note']) {
+      console.error('Rate limit hit:', stockData['Note']);
       return new Response(
         JSON.stringify({ error: 'Limite de requisições da API excedido. Tente novamente em 1 minuto.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
       );
     }
     
+    if (stockData['Information']) {
+      console.error('API Information message:', stockData['Information']);
+      return new Response(
+        JSON.stringify({ error: 'Limite de requisições da API excedido. A API gratuita permite apenas 25 requisições por dia.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
+      );
+    }
+    
     const timeSeries = stockData['Time Series (Daily)'];
     if (!timeSeries) {
-      throw new Error('Dados de ação não disponíveis');
+      console.error('No time series data available. Full response:', JSON.stringify(stockData));
+      return new Response(
+        JSON.stringify({ error: 'Dados de ação não disponíveis. Verifique se o símbolo está correto ou tente novamente mais tarde.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
     }
     
     // Get the last 30 days of data
