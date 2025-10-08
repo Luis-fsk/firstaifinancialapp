@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Newspaper, ArrowLeft, Clock, TrendingUp, ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 interface NewsArticle {
   id: string;
@@ -17,6 +17,47 @@ interface NewsArticle {
   published_at: string;
   ai_analysis?: string;
 }
+
+const formatMessage = (text: string): string => {
+  // Replace bold text (**text**)
+  let formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  
+  // Replace headings (### text for h3, ## text for h2)
+  formatted = formatted.replace(/^### (.+)$/gm, '<h3 class="text-sm font-semibold mt-2 mb-1">$1</h3>');
+  formatted = formatted.replace(/^## (.+)$/gm, '<h2 class="text-base font-semibold mt-3 mb-2">$1</h2>');
+  
+  // Replace tables (lines with |)
+  formatted = formatted.replace(/(\|[^\n]+\|\n?)+/g, (match) => {
+    const rows = match.trim().split('\n').filter(row => row.trim() && row.includes('|'));
+    if (rows.length === 0) return match;
+    
+    let html = '<div class="overflow-x-auto my-2"><table class="border-collapse w-full min-w-full"><tbody>';
+    
+    rows.forEach((row, index) => {
+      if (row.match(/^\|[\s:-]+\|$/)) return;
+      
+      const cells = row.split('|').filter(cell => cell.trim());
+      html += '<tr>';
+      cells.forEach(cell => {
+        const trimmedCell = cell.trim();
+        if (index === 0) {
+          html += `<th class="border border-border px-2 py-1 font-semibold bg-muted/50">${trimmedCell}</th>`;
+        } else {
+          html += `<td class="border border-border px-2 py-1">${trimmedCell}</td>`;
+        }
+      });
+      html += '</tr>';
+    });
+    
+    html += '</tbody></table></div>';
+    return html;
+  });
+  
+  // Preserve line breaks
+  formatted = formatted.replace(/\n/g, '<br>');
+  
+  return formatted;
+};
 
 const News = () => {
   const navigate = useNavigate();
@@ -321,9 +362,13 @@ const News = () => {
                     {expandedArticle === article.id && article.ai_analysis && (
                       <div className="mt-4 p-4 bg-muted rounded-lg">
                         <h4 className="font-semibold mb-2 text-foreground">Análise de Impacto:</h4>
-                        <div className="text-sm text-foreground whitespace-pre-wrap">
-                          {article.ai_analysis}
-                        </div>
+                        <div 
+                          className="text-sm prose prose-sm max-w-none dark:prose-invert overflow-x-auto [&_table]:text-xs [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_td]:border [&_td]:border-border [&_th]:px-2 [&_th]:py-1 [&_th]:border [&_th]:border-border [&_strong]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1"
+                          style={{ wordWrap: 'break-word', overflowWrap: 'break-word' }}
+                          dangerouslySetInnerHTML={{ 
+                            __html: formatMessage(article.ai_analysis)
+                          }}
+                        />
                       </div>
                     )}
                   </CardContent>
@@ -378,9 +423,13 @@ const News = () => {
                         {expandedArticle === article.id && article.ai_analysis && (
                           <div className="mt-4 p-4 bg-muted rounded-lg">
                             <h4 className="font-semibold mb-2 text-foreground">Análise de Impacto:</h4>
-                            <div className="text-sm text-foreground whitespace-pre-wrap">
-                              {article.ai_analysis}
-                            </div>
+                            <div 
+                              className="text-sm prose prose-sm max-w-none dark:prose-invert overflow-x-auto [&_table]:text-xs [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_td]:border [&_td]:border-border [&_th]:px-2 [&_th]:py-1 [&_th]:border [&_th]:border-border [&_strong]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1"
+                              style={{ wordWrap: 'break-word', overflowWrap: 'break-word' }}
+                              dangerouslySetInnerHTML={{ 
+                                __html: formatMessage(article.ai_analysis)
+                              }}
+                            />
                           </div>
                         )}
                       </div>

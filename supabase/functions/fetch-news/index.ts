@@ -27,7 +27,11 @@ serve(async (req) => {
 
     console.log('Fetching news articles...');
     
-    // Mock news data from trusted sources
+    // Generate dynamic news with dates spread over the last 24-72 hours
+    const now = Date.now();
+    const hoursAgo = (hours: number) => new Date(now - hours * 60 * 60 * 1000).toISOString();
+    
+    // Mock news data from trusted sources with dynamic dates
     const mockNews: NewsItem[] = [
       {
         title: "Mercado de criptomoedas registra alta de 15% esta semana",
@@ -35,7 +39,7 @@ serve(async (req) => {
         category: "Criptomoedas",
         source: "Bloomberg",
         source_url: "https://bloomberg.com/crypto-market-rally",
-        published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+        published_at: hoursAgo(2)
       },
       {
         title: "Banco Central mantém taxa Selic em 11,75%",
@@ -43,7 +47,7 @@ serve(async (req) => {
         category: "Economia",
         source: "Reuters",
         source_url: "https://reuters.com/brazil-central-bank-selic",
-        published_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
+        published_at: hoursAgo(4)
       },
       {
         title: "Ações da Vale sobem 8% após anúncio de dividendos",
@@ -51,7 +55,7 @@ serve(async (req) => {
         category: "Bolsa",
         source: "Financial Times",
         source_url: "https://ft.com/vale-dividends-announcement",
-        published_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
+        published_at: hoursAgo(6)
       },
       {
         title: "Dólar recua para R$ 5,20 em meio a fluxo estrangeiro",
@@ -59,7 +63,7 @@ serve(async (req) => {
         category: "Câmbio",
         source: "Wall Street Journal",
         source_url: "https://wsj.com/brazil-dollar-rate",
-        published_at: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString()
+        published_at: hoursAgo(8)
       },
       {
         title: "Fundos imobiliários atraem R$ 2,5 bi em janeiro",
@@ -67,7 +71,7 @@ serve(async (req) => {
         category: "Investimentos",
         source: "InfoMoney",
         source_url: "https://infomoney.com/fundos-imobiliarios-captacao",
-        published_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
+        published_at: hoursAgo(12)
       },
       {
         title: "Tesouro Direto: IPCA+ 2029 rende 6,2% ao ano",
@@ -75,7 +79,7 @@ serve(async (req) => {
         category: "Renda Fixa",
         source: "Valor Econômico",
         source_url: "https://valor.globo.com/tesouro-direto-ipca",
-        published_at: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString()
+        published_at: hoursAgo(18)
       },
       {
         title: "Petrobras anuncia lucro recorde no trimestre",
@@ -83,7 +87,7 @@ serve(async (req) => {
         category: "Bolsa",
         source: "Bloomberg",
         source_url: "https://bloomberg.com/petrobras-earnings-record",
-        published_at: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString()
+        published_at: hoursAgo(20)
       },
       {
         title: "ETFs de S&P 500 disponíveis para brasileiros",
@@ -91,7 +95,7 @@ serve(async (req) => {
         category: "Investimentos",
         source: "Financial Times",
         source_url: "https://ft.com/brazil-sp500-etf-access",
-        published_at: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString()
+        published_at: hoursAgo(22)
       },
       {
         title: "Inflação desacelera para 3,8% em 12 meses",
@@ -99,7 +103,7 @@ serve(async (req) => {
         category: "Economia",
         source: "Reuters",
         source_url: "https://reuters.com/brazil-inflation-report",
-        published_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+        published_at: hoursAgo(24)
       },
       {
         title: "Nubank lança novo produto de crédito imobiliário",
@@ -107,7 +111,7 @@ serve(async (req) => {
         category: "Investimentos",
         source: "Wall Street Journal",
         source_url: "https://wsj.com/nubank-mortgage-product",
-        published_at: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString()
+        published_at: hoursAgo(26)
       },
       {
         title: "Ouro atinge novo recorde histórico",
@@ -115,7 +119,7 @@ serve(async (req) => {
         category: "Investimentos",
         source: "Bloomberg",
         source_url: "https://bloomberg.com/gold-price-record-high",
-        published_at: new Date(Date.now() - 28 * 60 * 60 * 1000).toISOString()
+        published_at: hoursAgo(28)
       },
       {
         title: "Startups brasileiras captam US$ 1 bi no semestre",
@@ -123,7 +127,7 @@ serve(async (req) => {
         category: "Economia",
         source: "Financial Times",
         source_url: "https://ft.com/brazil-startup-funding",
-        published_at: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString()
+        published_at: hoursAgo(30)
       }
     ];
 
