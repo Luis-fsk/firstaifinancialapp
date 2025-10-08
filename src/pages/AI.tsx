@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Bot, ArrowLeft, TrendingUp, PieChart, BarChart3, Send, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   id: string;
@@ -60,7 +60,6 @@ const formatMessage = (text: string): string => {
 
 const AI = () => {
   const navigate = useNavigate();
-  const { sessionId, user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -72,6 +71,7 @@ const AI = () => {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [conversationHistory, setConversationHistory] = useState<Array<{role: string; content: string}>>([]);
 
 
   const scrollToBottom = () => {
@@ -84,35 +84,28 @@ const AI = () => {
 
   async function perguntarIA(pergunta: string) {
     try {
-      const payload = {
-        sessionId: sessionId || `user_${user?.id?.slice(0, 8)}`,
-        mensagem: pergunta
-      };
+      // Add user message to conversation history
+      const newHistory = [...conversationHistory, { role: 'user', content: pergunta }];
 
-      console.log('Enviando para webhook:', payload);
+      console.log('Enviando para OpenAI via edge function:', newHistory);
 
-      const response = await fetch("https://eleefe.app.n8n.cloud/webhook/financial_ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+      const { data, error } = await supabase.functions.invoke('openai-chat', {
+        body: { messages: newHistory }
       });
-      
-      const data = await response.json();
-      console.log('Resposta recebida do webhook:', data);
-      
-      // Handle different response formats
-      if (data.reply) {
-        return data.reply;
-      } else if (data.resposta) {
-        return data.resposta;
-      } else if (data.message) {
-        return data.message;
-      } else if (typeof data === 'string') {
-        return data;
+
+      if (error) {
+        console.error('Erro ao chamar edge function:', error);
+        throw error;
       }
       
-      console.error('Formato de resposta inesperado:', data);
-      return "Desculpe, não consegui processar sua pergunta.";
+      console.log('Resposta recebida do OpenAI:', data);
+      
+      const assistantResponse = data.message || "Desculpe, não consegui processar sua pergunta.";
+      
+      // Update conversation history with assistant response
+      setConversationHistory([...newHistory, { role: 'assistant', content: assistantResponse }]);
+      
+      return assistantResponse;
     } catch (error) {
       console.error("Erro ao consultar IA:", error);
       return "Desculpe, ocorreu um erro ao processar sua pergunta. Tente novamente.";
