@@ -18,7 +18,8 @@ const formatMessage = (text: string): string => {
   // Replace bold text (**text**)
   let formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   
-  // Replace headings (## text)
+  // Replace headings (### text for h3, ## text for h2)
+  formatted = formatted.replace(/^### (.+)$/gm, '<h3 class="text-sm font-semibold mt-2 mb-1">$1</h3>');
   formatted = formatted.replace(/^## (.+)$/gm, '<h2 class="text-base font-semibold mt-3 mb-2">$1</h2>');
   
   // Replace tables (lines with |)
@@ -278,7 +279,7 @@ const AI = () => {
                           }`}
                         >
                           <div 
-                            className="text-sm prose prose-sm max-w-none dark:prose-invert overflow-x-auto [&_table]:text-xs [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_td]:border [&_td]:border-border [&_th]:px-2 [&_th]:py-1 [&_th]:border [&_th]:border-border [&_strong]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-2"
+                            className="text-sm prose prose-sm max-w-none dark:prose-invert overflow-x-auto [&_table]:text-xs [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_td]:border [&_td]:border-border [&_th]:px-2 [&_th]:py-1 [&_th]:border [&_th]:border-border [&_strong]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1"
                             style={{ wordWrap: 'break-word', overflowWrap: 'break-word' }}
                             dangerouslySetInnerHTML={{ 
                               __html: formatMessage(message.text)
