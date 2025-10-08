@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,77 +23,86 @@ serve(async (req) => {
     console.log('Analyzing stock:', symbol);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    const FINNHUB_API_KEY = Deno.env.get('FINNHUB_API_KEY');
     
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY not configured');
     }
-    if (!FINNHUB_API_KEY) {
-      throw new Error('FINNHUB_API_KEY not configured');
+
+    // Buscar dados da ação usando Yahoo Finance API (gratuita)
+    // Para ações brasileiras: PETR4.SA, VALE3.SA, etc.
+    // Para ações americanas: AAPL, TSLA, etc.
+    console.log('Fetching stock data from Yahoo Finance...');
+    
+    const yahooApiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1mo`;
+    
+    const stockResponse = await fetch(yahooApiUrl);
+    
+    if (!stockResponse.ok) {
+      console.error('Yahoo Finance API error:', stockResponse.status);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Ação não encontrada. Para ações brasileiras use .SA (ex: PETR4.SA). Para americanas use o símbolo direto (ex: AAPL).' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
     }
 
-    console.log('Fetching stock data from Finnhub...');
+    const stockData = await stockResponse.json();
+    console.log('Yahoo Finance response status:', stockData.chart?.result?.[0] ? 'OK' : 'No data');
     
-    // Get current quote
-    const quoteUrl = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
-    const quoteResponse = await fetch(quoteUrl);
-    
-    if (!quoteResponse.ok) {
-      throw new Error(`Finnhub API error: ${quoteResponse.status}`);
-    }
-    
-    const quoteData = await quoteResponse.json();
-    console.log('Finnhub Quote:', JSON.stringify(quoteData));
-    
-    if (!quoteData.c || quoteData.c === 0) {
-      console.error('Invalid stock symbol or no data:', symbol);
+    if (!stockData.chart?.result?.[0]) {
       return new Response(
-        JSON.stringify({ error: 'Símbolo de ação inválido ou não encontrado. Use símbolos US como AAPL, TSLA, NVDA, etc.' }),
+        JSON.stringify({ error: 'Dados da ação não disponíveis. Verifique o símbolo.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
+    const result = stockData.chart.result[0];
+    const meta = result.meta;
+    const timestamps = result.timestamp;
+    const quotes = result.indicators.quote[0];
+    
+    if (!timestamps || timestamps.length === 0 || !quotes.close) {
+      return new Response(
+        JSON.stringify({ error: 'Dados insuficientes para análise.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
     
-    const currentPrice = quoteData.c;
-    const previousClose = quoteData.pc;
-    const highPrice = quoteData.h;
-    const lowPrice = quoteData.l;
+    const currentPrice = meta.regularMarketPrice;
+    const previousClose = meta.previousClose || meta.chartPreviousClose;
+    const currency = meta.currency === 'BRL' ? 'R$' : '$';
     
-    // Create synthetic chart data based on current price and daily range
-    // Free tier Finnhub doesn't allow historical candle data
-    const chartData = [];
-    const daysToShow = 30;
-    const priceVariation = Math.abs(highPrice - lowPrice) / currentPrice;
-    
-    for (let i = daysToShow - 1; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      
-      // Generate realistic price fluctuation based on daily range
-      const randomVar = (Math.random() - 0.5) * priceVariation * currentPrice * 0.5;
-      const estimatedPrice = previousClose + randomVar;
-      
-      chartData.push({
-        date: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-        price: parseFloat(Math.max(estimatedPrice, lowPrice).toFixed(2))
-      });
-    }
-    
-    // Ensure the last data point is the current price
-    chartData[chartData.length - 1].price = parseFloat(currentPrice.toFixed(2));
+    // Criar dados do gráfico dos últimos 30 dias
+    const validDataPoints = timestamps.map((timestamp: number, index: number) => ({
+      timestamp,
+      price: quotes.close[index]
+    })).filter((point: any) => point.price != null);
 
-    // Call Lovable AI for analysis
+    const chartData = validDataPoints.slice(-30).map((point: any) => ({
+      date: new Date(point.timestamp * 1000).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      price: parseFloat(point.price.toFixed(2))
+    }));
+
+    // Calcular variação
+    const priceChange = ((currentPrice - previousClose) / previousClose * 100).toFixed(2);
+    
+    // Preparar contexto para a IA
     const aiPrompt = `Você é um analista financeiro experiente. Analise a ação "${symbol}" e forneça:
 
 1. Nome completo da empresa
 2. Um resumo da atuação e performance da empresa (2-3 parágrafos)
-3. Análise do gráfico de preços considerando os dados: preço atual R$ ${currentPrice.toFixed(2)}
+3. Análise do gráfico de preços considerando:
+   - Preço atual: ${currency} ${currentPrice.toFixed(2)}
+   - Variação: ${priceChange}%
+   - Tendência dos últimos 30 dias
 4. Projeções para o futuro (curto, médio e longo prazo)
 5. Recomendação de investimento:
    - Ação: investir, evitar ou cautela
    - Prazo recomendado: curto (até 6 meses), médio (6-18 meses) ou longo (mais de 18 meses)
    - Justificativa detalhada do prazo
 
-Formato de resposta (JSON):
+IMPORTANTE: Retorne APENAS um JSON válido no formato:
 {
   "company_name": "Nome da Empresa",
   "performance_summary": "Resumo detalhado...",
@@ -118,7 +126,7 @@ Formato de resposta (JSON):
         messages: [
           { 
             role: 'system', 
-            content: 'Você é um analista financeiro especializado. Sempre responda em português brasileiro com análises profissionais e bem fundamentadas. Retorne sempre um JSON válido.' 
+            content: 'Você é um analista financeiro especializado. Sempre responda em português brasileiro com análises profissionais e bem fundamentadas. Retorne sempre um JSON válido sem markdown.' 
           },
           { role: 'user', content: aiPrompt }
         ],
@@ -149,7 +157,7 @@ Formato de resposta (JSON):
       throw new Error('No content in AI response');
     }
 
-    console.log('AI Response:', aiContent);
+    console.log('AI Response received');
 
     // Try to parse JSON from the response
     let analysisData;
@@ -166,12 +174,12 @@ Formato de resposta (JSON):
       analysisData = {
         company_name: symbol,
         performance_summary: aiContent.substring(0, 500),
-        chart_analysis: 'Análise técnica não disponível no formato esperado.',
-        future_projection: 'Projeções não disponíveis no formato esperado.',
+        chart_analysis: 'Análise técnica disponível acima.',
+        future_projection: 'Consulte a análise completa acima.',
         recommendation: {
           action: 'cautela',
           timeframe: 'médio',
-          reasoning: 'Recomendação gerada com cautela devido a formato de resposta inesperado.'
+          reasoning: 'Recomendação gerada com cautela. Consulte um profissional.'
         }
       };
     }

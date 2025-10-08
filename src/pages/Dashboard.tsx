@@ -56,8 +56,8 @@ const Dashboard = () => {
       description: "Análise completa de ações com IA, gráficos e recomendações",
       icon: LineChart,
       path: "/stocks",
-      gradient: "bg-gradient-warm",
-      textColor: "text-white",
+      gradient: "bg-gradient-warm-subtle",
+      textColor: "text-foreground",
     },
   ];
 

@@ -116,8 +116,8 @@ const Stocks = () => {
               Voltar
             </Button>
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-warm rounded-lg">
-                <TrendingUp className="h-6 w-6 text-white" />
+              <div className="p-2 bg-gradient-warm-subtle rounded-lg">
+                <TrendingUp className="h-6 w-6 text-foreground" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-foreground">Análise de Ações</h1>
@@ -147,13 +147,13 @@ const Stocks = () => {
           <CardHeader>
             <CardTitle>Buscar Ação</CardTitle>
             <CardDescription>
-              Insira o símbolo da ação (ex: PETR4, VALE3, AAPL, TSLA)
+              Insira o código da ação brasileira (ex: PETR4.SA, VALE3.SA) ou americana (ex: AAPL, TSLA)
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-4">
               <Input
-                placeholder="Ex: PETR4"
+                placeholder="Ex: PETR4.SA ou AAPL"
                 value={stockSymbol}
                 onChange={(e) => setStockSymbol(e.target.value.toUpperCase())}
                 onKeyPress={(e) => e.key === 'Enter' && analyzeStock()}
