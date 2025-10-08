@@ -33,11 +33,11 @@ export const UserSearch = ({ currentUserId, onConnectionCreated }: UserSearchPro
     setSearching(true);
 
     try {
-      // Buscar usuários por username ou ID
+      // Buscar usuários por username, display_name ou ID
       const { data: profiles, error } = await supabase
         .from('profiles')
         .select('*')
-        .or(`username.ilike.%${searchQuery}%,user_id.eq.${searchQuery}`)
+        .or(`username.ilike.%${searchQuery}%,display_name.ilike.%${searchQuery}%,user_id.eq.${searchQuery}`)
         .neq('user_id', currentUserId)
         .limit(10);
 
@@ -46,7 +46,7 @@ export const UserSearch = ({ currentUserId, onConnectionCreated }: UserSearchPro
       if (!profiles || profiles.length === 0) {
         toast({
           title: "Nenhum resultado",
-          description: "Nenhum usuário encontrado com esse username ou ID"
+          description: "Nenhum usuário encontrado"
         });
         setSearchResults([]);
         setSearching(false);
@@ -145,7 +145,7 @@ export const UserSearch = ({ currentUserId, onConnectionCreated }: UserSearchPro
       <CardContent className="space-y-4">
         <div className="flex gap-2">
           <Input
-            placeholder="Buscar por username ou ID..."
+            placeholder="Buscar por nome, username ou ID..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && searchUsers()}

@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Users, ArrowLeft, MessageCircle, Heart, Share2, TrendingUp, Award, Clock, Plus, Image, Send, UserPlus, X } from "lucide-react";
+import { Users, ArrowLeft, MessageCircle, Heart, Share2, TrendingUp, Award, Clock, Plus, Image, Send, UserPlus, X, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -83,6 +83,7 @@ const Community = () => {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [selectedUserProfile, setSelectedUserProfile] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Load user profile
   useEffect(() => {
