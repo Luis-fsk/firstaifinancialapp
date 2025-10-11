@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Settings, HelpCircle, FileText, LogOut, Camera, Edit, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
@@ -14,9 +14,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+
+interface Goal {
+  id: string;
+  title: string;
+  description: string;
+  category: 'fixed' | 'variable' | 'investment';
+  target: number;
+  progress: number;
+  isCompleted: boolean;
+}
 
 export function UserMenu() {
   const { user, profile, signOut } = useAuth();
@@ -27,12 +39,29 @@ export function UserMenu() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [financialGoals, setFinancialGoals] = useState<Goal[]>([]);
   
   const [profileData, setProfileData] = useState({
     display_name: profile?.display_name || "",
     bio: profile?.bio || "",
     avatar_url: profile?.avatar_url || "",
   });
+
+  // Load financial goals
+  useEffect(() => {
+    const loadFinancialGoals = () => {
+      const savedGoals = localStorage.getItem('financeGoals');
+      if (savedGoals) {
+        setFinancialGoals(JSON.parse(savedGoals));
+      }
+    };
+
+    loadFinancialGoals();
+
+    // Update when localStorage changes
+    const interval = setInterval(loadFinancialGoals, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = async () => {
     await signOut();
@@ -350,62 +379,109 @@ export function UserMenu() {
 
       {/* Financial Report Dialog */}
       <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Relatório Financeiro Mensal</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 border rounded-lg">
-                  <h4 className="font-medium text-primary">Receita Total</h4>
-                  <p className="text-2xl font-bold text-primary">R$ 5.420,00</p>
-                  <p className="text-sm text-muted-foreground">+12% vs mês anterior</p>
-                </div>
-                <div className="p-4 border rounded-lg">
-                  <h4 className="font-medium text-secondary">Gastos Total</h4>
-                  <p className="text-2xl font-bold text-secondary">R$ 3.890,00</p>
-                  <p className="text-sm text-muted-foreground">-5% vs mês anterior</p>
-                </div>
-              </div>
+          <div className="py-4">
+            {financialGoals.length > 0 ? (
+              <div className="space-y-6">
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Card className="bg-gradient-warm text-white">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Gastos Fixos</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold">
+                        R$ {financialGoals.find(g => g.category === 'fixed')?.progress.toFixed(2) || '0,00'}
+                      </p>
+                      <p className="text-sm text-white/80 mt-1">
+                        Meta: R$ {financialGoals.find(g => g.category === 'fixed')?.target.toFixed(2) || '0,00'}
+                      </p>
+                    </CardContent>
+                  </Card>
 
-              <div className="p-4 border rounded-lg">
-                <h4 className="font-medium text-warm">Saldo Líquido</h4>
-                <p className="text-3xl font-bold text-warm">R$ 1.530,00</p>
-                <p className="text-sm text-muted-foreground">Excelente performance! Meta atingida em 95%</p>
-              </div>
+                  <Card className="bg-primary text-primary-foreground">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Gastos Variáveis</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold">
+                        R$ {financialGoals.find(g => g.category === 'variable')?.progress.toFixed(2) || '0,00'}
+                      </p>
+                      <p className="text-sm opacity-80 mt-1">
+                        Meta: R$ {financialGoals.find(g => g.category === 'variable')?.target.toFixed(2) || '0,00'}
+                      </p>
+                    </CardContent>
+                  </Card>
 
-              <div>
-                <h4 className="font-medium mb-3">Principais Categorias de Gastos</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Alimentação</span>
-                    <span className="text-sm font-medium">R$ 890,00 (23%)</span>
+                  <Card className="col-span-2 bg-secondary text-secondary-foreground">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Investimentos</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-3xl font-bold">
+                        R$ {financialGoals.find(g => g.category === 'investment')?.progress.toFixed(2) || '0,00'}
+                      </p>
+                      <p className="text-sm opacity-80 mt-1">
+                        Meta: R$ {financialGoals.find(g => g.category === 'investment')?.target.toFixed(2) || '0,00'}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Goals Progress */}
+                <div>
+                  <h4 className="font-medium mb-3">Progresso das Metas</h4>
+                  <div className="space-y-4">
+                    {financialGoals.map((goal) => {
+                      const percentage = Math.min((goal.progress / goal.target) * 100, 100);
+                      const isOverBudget = goal.category !== 'investment' && goal.progress > goal.target;
+                      
+                      return (
+                        <div key={goal.id} className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-medium text-sm">{goal.title}</p>
+                              <p className="text-xs text-muted-foreground">{goal.description}</p>
+                            </div>
+                            <span className={`text-sm font-medium ${
+                              goal.isCompleted ? 'text-green-500' : 
+                              isOverBudget ? 'text-red-500' : 
+                              'text-muted-foreground'
+                            }`}>
+                              {percentage.toFixed(0)}%
+                            </span>
+                          </div>
+                          <Progress value={percentage} className="h-2" />
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Transporte</span>
-                    <span className="text-sm font-medium">R$ 650,00 (17%)</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Moradia</span>
-                    <span className="text-sm font-medium">R$ 1.200,00 (31%)</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Lazer</span>
-                    <span className="text-sm font-medium">R$ 450,00 (12%)</span>
+                </div>
+
+                {/* Summary */}
+                <div className="p-4 bg-muted rounded-lg">
+                  <h4 className="font-medium mb-2">Resumo do Mês</h4>
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    <p>✅ {financialGoals.filter(g => g.isCompleted).length} de {financialGoals.length} metas concluídas</p>
+                    <p>💰 Total investido: R$ {financialGoals.find(g => g.category === 'investment')?.progress.toFixed(2) || '0,00'}</p>
+                    <p>📊 Total de gastos: R$ {(
+                      (financialGoals.find(g => g.category === 'fixed')?.progress || 0) +
+                      (financialGoals.find(g => g.category === 'variable')?.progress || 0)
+                    ).toFixed(2)}</p>
                   </div>
                 </div>
               </div>
-
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-medium">Recomendações da IA</h4>
-                <ul className="text-sm text-muted-foreground mt-2 space-y-1">
-                  <li>• Considere reduzir gastos com alimentação em 10%</li>
-                  <li>• Aumente sua reserva de emergência em R$ 300/mês</li>
-                  <li>• Explore investimentos em renda fixa</li>
-                </ul>
+            ) : (
+              <div className="text-center py-8">
+                <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">
+                  Nenhum dado financeiro encontrado. Adicione gastos na página de Finanças Pessoais para ver seu relatório.
+                </p>
               </div>
-            </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
