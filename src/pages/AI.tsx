@@ -61,14 +61,32 @@ const formatMessage = (text: string): string => {
 
 const AI = () => {
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      text: `Olá! 👋 Como posso te ajudar hoje? Sugestão, pergunte sobre: Renda Fixa, Perfis de Investimento ou Cryptomoedas.`,
-      isUser: false,
-      timestamp: new Date()
+  
+  // Carregar mensagens do localStorage ao iniciar
+  const loadMessagesFromStorage = (): Message[] => {
+    try {
+      const stored = localStorage.getItem('ai_chat_messages');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return parsed.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar mensagens:', error);
     }
-  ]);
+    return [
+      {
+        id: "1",
+        text: `Olá! 👋 Como posso te ajudar hoje? Sugestão, pergunte sobre: Renda Fixa, Perfis de Investimento ou Cryptomoedas.`,
+        isUser: false,
+        timestamp: new Date()
+      }
+    ];
+  };
+
+  const [messages, setMessages] = useState<Message[]>(loadMessagesFromStorage());
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -81,6 +99,16 @@ const AI = () => {
 
   useEffect(() => {
     scrollToBottom();
+  }, [messages]);
+
+  // Salvar apenas as últimas 6 mensagens no localStorage
+  useEffect(() => {
+    const last6Messages = messages.slice(-6);
+    try {
+      localStorage.setItem('ai_chat_messages', JSON.stringify(last6Messages));
+    } catch (error) {
+      console.error('Erro ao salvar mensagens:', error);
+    }
   }, [messages]);
 
   async function perguntarIA(pergunta: string) {
