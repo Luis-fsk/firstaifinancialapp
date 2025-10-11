@@ -27,9 +27,12 @@ serve(async (req) => {
 
     console.log('Fetching news articles...');
     
-    // Generate dynamic news with dates spread over the last 24-72 hours
+    // Generate dynamic news with dates spread over the last few hours
     const now = Date.now();
     const hoursAgo = (hours: number) => new Date(now - hours * 60 * 60 * 1000).toISOString();
+    
+    // Add random minutes to make each call unique
+    const randomMinutes = () => Math.floor(Math.random() * 60);
     
     // Mock news data from trusted sources with dynamic dates
     const mockNews: NewsItem[] = [
@@ -144,7 +147,7 @@ serve(async (req) => {
           published_at: newsItem.published_at
         }, {
           onConflict: 'source_url',
-          ignoreDuplicates: true
+          ignoreDuplicates: false // Allow updates to refresh published_at
         });
 
       if (error) {
