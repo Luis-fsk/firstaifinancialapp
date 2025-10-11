@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Settings, HelpCircle, FileText, LogOut, Camera, Edit, Trash2 } from "lucide-react";
+import { User, Settings, HelpCircle, FileText, LogOut, Camera, Edit, Trash2, Sparkles } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +40,8 @@ export function UserMenu() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [financialGoals, setFinancialGoals] = useState<Goal[]>([]);
+  const [aiTips, setAiTips] = useState<string[]>([]);
+  const [loadingTips, setLoadingTips] = useState(false);
   
   const [profileData, setProfileData] = useState({
     display_name: profile?.display_name || "",
@@ -62,6 +64,36 @@ export function UserMenu() {
     const interval = setInterval(loadFinancialGoals, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Generate AI tips when goals are loaded or dialog opens
+  const generateAiTips = async () => {
+    if (financialGoals.length === 0 || loadingTips) return;
+    
+    setLoadingTips(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('financial-tips', {
+        body: { goals: financialGoals }
+      });
+
+      if (error) {
+        console.error('Error generating tips:', error);
+        toast({
+          title: "Erro ao gerar dicas",
+          description: "Não foi possível gerar dicas da IA no momento.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data?.tips) {
+        setAiTips(data.tips);
+      }
+    } catch (error) {
+      console.error('Error generating tips:', error);
+    } finally {
+      setLoadingTips(false);
+    }
+  };
 
   const handleLogout = async () => {
     await signOut();
@@ -245,7 +277,13 @@ export function UserMenu() {
             <HelpCircle className="mr-2 h-4 w-4" />
             <span>Ajuda</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setShowReportDialog(true)}>
+          <DropdownMenuItem onClick={() => {
+            setShowReportDialog(true);
+            // Generate tips when opening the dialog
+            if (financialGoals.length > 0 && aiTips.length === 0) {
+              generateAiTips();
+            }
+          }}>
             <FileText className="mr-2 h-4 w-4" />
             <span>Relatório Financeiro</span>
           </DropdownMenuItem>
@@ -472,6 +510,44 @@ export function UserMenu() {
                       (financialGoals.find(g => g.category === 'variable')?.progress || 0)
                     ).toFixed(2)}</p>
                   </div>
+                </div>
+
+                {/* AI Tips */}
+                <div className="p-4 bg-gradient-warm text-white rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Sparkles className="h-5 w-5" />
+                      Recomendações da IA
+                    </h4>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={generateAiTips}
+                      disabled={loadingTips}
+                      className="text-white hover:bg-white/20 h-7 px-2"
+                    >
+                      {loadingTips ? "Gerando..." : "Atualizar"}
+                    </Button>
+                  </div>
+                  {loadingTips ? (
+                    <div className="flex items-center gap-2 text-sm text-white/80">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Gerando dicas personalizadas...
+                    </div>
+                  ) : aiTips.length > 0 ? (
+                    <ul className="text-sm text-white/90 space-y-2">
+                      {aiTips.map((tip, index) => (
+                        <li key={index} className="flex items-start gap-2">
+                          <span className="mt-1">•</span>
+                          <span>{tip}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-white/80">
+                      Clique em "Atualizar" para gerar dicas personalizadas com base em suas finanças.
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (

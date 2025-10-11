@@ -67,3 +67,6 @@ verify_jwt = false
 
 [functions.daily-news-cron]
 verify_jwt = false
+
+[functions.financial-tips]
+verify_jwt = false
