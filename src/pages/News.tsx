@@ -484,7 +484,7 @@ const News = () => {
         
         {!loading && filteredArticles.length > 10 && (
           <div className="text-center mt-8">
-            <Button variant="outline" className="px-8" onClick={fetchNews}>
+            <Button variant="outline" className="px-8" onClick={() => fetchNews()}>
               Buscar mais notícias
             </Button>
           </div>
