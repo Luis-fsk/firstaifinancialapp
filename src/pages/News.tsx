@@ -76,7 +76,7 @@ const News = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const fetchNews = async () => {
+  const fetchNews = async (showToast = false) => {
     try {
       setLoading(true);
       
@@ -101,6 +101,13 @@ const News = () => {
       }
 
       setNewsArticles(existingNews || []);
+      
+      if (showToast) {
+        toast({
+          title: "Notícias atualizadas",
+          description: "As notícias foram carregadas com sucesso",
+        });
+      }
     } catch (error) {
       console.error('Error in fetchNews:', error);
       toast({
@@ -109,6 +116,30 @@ const News = () => {
         variant: "destructive",
       });
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshNews = async () => {
+    try {
+      setLoading(true);
+      
+      // Call the edge function to fetch fresh news
+      const { error } = await supabase.functions.invoke('fetch-news');
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Reload the news from database
+      await fetchNews(true);
+    } catch (error) {
+      console.error('Error refreshing news:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar notícias",
+        variant: "destructive",
+      });
       setLoading(false);
     }
   };
@@ -267,7 +298,7 @@ const News = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={fetchNews}
+                onClick={refreshNews}
                 disabled={loading}
                 className="ml-auto"
               >
