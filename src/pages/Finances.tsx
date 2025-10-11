@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, PlusCircle, DollarSign, TrendingUp, Target, Award } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ArrowLeft, PlusCircle, DollarSign, TrendingUp, Target, Award, Pencil, Trash2 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { toast } from "sonner";
 
@@ -51,6 +52,8 @@ const Finances = () => {
     description: '',
     location: ''
   });
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // Calcular metas baseadas nas despesas reais
   const calculateGoals = (): Goal[] => {
@@ -145,6 +148,40 @@ const Finances = () => {
     
     setNewExpense({ amount: '', category: '', description: '', location: '' });
     toast.success("Gasto adicionado com sucesso!");
+  };
+
+  const handleEditExpense = (expense: Expense) => {
+    setEditingExpense(expense);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateExpense = () => {
+    if (!editingExpense) return;
+
+    const updatedExpenses = expenses.map(exp => 
+      exp.id === editingExpense.id ? editingExpense : exp
+    );
+    
+    setExpenses(updatedExpenses);
+    localStorage.setItem('financeExpenses', JSON.stringify(updatedExpenses));
+    
+    const goals = calculateGoalsForExpenses(updatedExpenses);
+    localStorage.setItem('financeGoals', JSON.stringify(goals));
+    
+    setIsEditDialogOpen(false);
+    setEditingExpense(null);
+    toast.success("Gasto atualizado com sucesso!");
+  };
+
+  const handleDeleteExpense = (expenseId: string) => {
+    const updatedExpenses = expenses.filter(exp => exp.id !== expenseId);
+    setExpenses(updatedExpenses);
+    localStorage.setItem('financeExpenses', JSON.stringify(updatedExpenses));
+    
+    const goals = calculateGoalsForExpenses(updatedExpenses);
+    localStorage.setItem('financeGoals', JSON.stringify(goals));
+    
+    toast.success("Gasto removido com sucesso!");
   };
 
   const calculateGoalsForExpenses = (expensesList: Expense[]): Goal[] => {
@@ -452,9 +489,29 @@ const Finances = () => {
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold">R$ {expense.amount.toFixed(2)}</p>
-                        <p className="text-sm text-muted-foreground capitalize">{expense.category}</p>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <p className="font-bold">R$ {expense.amount.toFixed(2)}</p>
+                          <p className="text-sm text-muted-foreground capitalize">{expense.category}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditExpense(expense)}
+                            className="h-8 w-8"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteExpense(expense.id)}
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -532,6 +589,90 @@ const Finances = () => {
           </div>
         </div>
       </main>
+
+      {/* Edit Expense Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Editar Gasto</DialogTitle>
+            <DialogDescription>
+              Atualize as informações do gasto cadastrado
+            </DialogDescription>
+          </DialogHeader>
+          {editingExpense && (
+            <div className="space-y-4 pt-4">
+              <div>
+                <Label htmlFor="edit-amount">Valor (R$)</Label>
+                <Input
+                  id="edit-amount"
+                  type="number"
+                  value={editingExpense.amount}
+                  onChange={(e) => setEditingExpense({
+                    ...editingExpense,
+                    amount: parseFloat(e.target.value) || 0
+                  })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-category">Categoria</Label>
+                <Select 
+                  value={editingExpense.category} 
+                  onValueChange={(value) => setEditingExpense({
+                    ...editingExpense,
+                    category: value as 'fixed' | 'variable' | 'investment'
+                  })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fixed">Fixo</SelectItem>
+                    <SelectItem value="variable">Variável</SelectItem>
+                    <SelectItem value="investment">Investimento</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-description">Descrição</Label>
+                <Input
+                  id="edit-description"
+                  value={editingExpense.description}
+                  onChange={(e) => setEditingExpense({
+                    ...editingExpense,
+                    description: e.target.value
+                  })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-location">Local (opcional)</Label>
+                <Input
+                  id="edit-location"
+                  value={editingExpense.location || ''}
+                  onChange={(e) => setEditingExpense({
+                    ...editingExpense,
+                    location: e.target.value
+                  })}
+                />
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  onClick={handleUpdateExpense}
+                  className="flex-1 bg-gradient-warm hover:bg-gradient-warm/90"
+                >
+                  Salvar Alterações
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEditDialogOpen(false)}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
