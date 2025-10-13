@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,24 +22,42 @@ interface RSSItem {
   pubDate: string;
 }
 
+async function parseRSSFeed(text: string): Promise<RSSItem[]> {
+  const items: RSSItem[] = [];
+  
+  // Extract all <item> blocks
+  const itemMatches = text.matchAll(/<item>([\s\S]*?)<\/item>/g);
+  
+  for (const match of itemMatches) {
+    const itemContent = match[1];
+    
+    const titleMatch = itemContent.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>|<title>(.*?)<\/title>/);
+    const linkMatch = itemContent.match(/<link>(.*?)<\/link>/);
+    const descMatch = itemContent.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>|<description>(.*?)<\/description>/);
+    const pubDateMatch = itemContent.match(/<pubDate>(.*?)<\/pubDate>/);
+    
+    if (titleMatch && linkMatch) {
+      items.push({
+        title: (titleMatch[1] || titleMatch[2] || '').trim(),
+        link: linkMatch[1].trim(),
+        description: (descMatch?.[1] || descMatch?.[2] || '').trim().substring(0, 500),
+        pubDate: pubDateMatch?.[1] || new Date().toISOString(),
+      });
+    }
+  }
+  
+  return items;
+}
+
 async function fetchRSSFeed(url: string): Promise<RSSItem[]> {
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)'
+      }
+    });
     const text = await response.text();
-    const doc = new DOMParser().parseFromString(text, "text/xml");
-    
-    if (!doc) return [];
-    
-    const items = doc.querySelectorAll("item");
-    return Array.from(items).map(item => {
-      const element = item as any;
-      return {
-        title: element.querySelector("title")?.textContent || "",
-        link: element.querySelector("link")?.textContent || "",
-        description: element.querySelector("description")?.textContent || "",
-        pubDate: element.querySelector("pubDate")?.textContent || new Date().toISOString(),
-      };
-    }).filter(item => item.title && item.link);
+    return await parseRSSFeed(text);
   } catch (error) {
     console.error(`Error fetching RSS from ${url}:`, error);
     return [];
