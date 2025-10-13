@@ -74,34 +74,42 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('Fetching news from RSS feeds...');
+    console.log('Fetching news from RSS feeds and APIs...');
     
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!lovableApiKey) {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    // RSS feeds de fontes confiáveis
-    const rssFeeds = [
-      { url: 'https://www.investing.com/rss/news.rss', source: 'Investing.com' },
-      { url: 'https://www.marketwatch.com/rss/topstories', source: 'MarketWatch' },
-      { url: 'https://feeds.finance.yahoo.com/rss/2.0/headline', source: 'Yahoo Finance' },
-    ];
-
-    // Buscar notícias de todos os feeds
-    const allRSSItems: Array<RSSItem & { source: string }> = [];
+    // Usar NewsAPI gratuita do The Guardian
+    const newsApiUrl = 'https://content.guardianapis.com/search?section=business&show-fields=headline,trailText,shortUrl&order-by=newest&page-size=15&api-key=test';
     
-    for (const feed of rssFeeds) {
-      const items = await fetchRSSFeed(feed.url);
-      allRSSItems.push(...items.map(item => ({ ...item, source: feed.source })));
+    console.log('Fetching from The Guardian API...');
+    const apiResponse = await fetch(newsApiUrl);
+    const apiData = await apiResponse.json();
+    
+    const allNewsItems: Array<RSSItem & { source: string }> = [];
+    
+    // Processar notícias da API
+    if (apiData.response?.results) {
+      console.log(`Got ${apiData.response.results.length} articles from The Guardian`);
+      for (const article of apiData.response.results) {
+        allNewsItems.push({
+          title: article.fields?.headline || article.webTitle,
+          link: article.fields?.shortUrl || article.webUrl,
+          description: article.fields?.trailText || '',
+          pubDate: article.webPublicationDate,
+          source: 'The Guardian'
+        });
+      }
     }
 
-    console.log(`Found ${allRSSItems.length} RSS items`);
-
     // Selecionar as 15 notícias mais recentes
-    const recentItems = allRSSItems
+    const recentItems = allNewsItems
       .sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime())
       .slice(0, 15);
+    
+    console.log(`Processing ${recentItems.length} recent items...`);
 
     // Processar com Lovable AI
     const processedNews: NewsItem[] = [];
