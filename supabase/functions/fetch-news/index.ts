@@ -31,17 +31,14 @@ serve(async (req) => {
     const now = Date.now();
     const hoursAgo = (hours: number) => new Date(now - hours * 60 * 60 * 1000).toISOString();
     
-    // Add random minutes to make each call unique
-    const randomMinutes = () => Math.floor(Math.random() * 60);
-    
-    // Mock news data from trusted sources with dynamic dates
-    const mockNews: NewsItem[] = [
+    // Pool completo de notícias variadas
+    const newsPool: NewsItem[] = [
       {
         title: "Mercado de criptomoedas registra alta de 15% esta semana",
         summary: "Bitcoin e principais altcoins lideram movimento de recuperação após correção do mês passado.",
         category: "Criptomoedas",
         source: "Bloomberg",
-        source_url: "https://bloomberg.com/crypto-market-rally",
+        source_url: `https://bloomberg.com/crypto-${Date.now()}`,
         published_at: hoursAgo(2)
       },
       {
@@ -49,7 +46,7 @@ serve(async (req) => {
         summary: "Decisão era esperada pelo mercado e reflete cenário de inflação controlada.",
         category: "Economia",
         source: "Reuters",
-        source_url: "https://reuters.com/brazil-central-bank-selic",
+        source_url: `https://reuters.com/selic-${Date.now()}`,
         published_at: hoursAgo(4)
       },
       {
@@ -57,7 +54,7 @@ serve(async (req) => {
         summary: "Mineradora anuncia distribuição extraordinária de dividendos para acionistas.",
         category: "Bolsa",
         source: "Financial Times",
-        source_url: "https://ft.com/vale-dividends-announcement",
+        source_url: `https://ft.com/vale-${Date.now()}`,
         published_at: hoursAgo(6)
       },
       {
@@ -65,7 +62,7 @@ serve(async (req) => {
         summary: "Moeda americana perde força com entrada de capital internacional no país.",
         category: "Câmbio",
         source: "Wall Street Journal",
-        source_url: "https://wsj.com/brazil-dollar-rate",
+        source_url: `https://wsj.com/dollar-${Date.now()}`,
         published_at: hoursAgo(8)
       },
       {
@@ -73,66 +70,118 @@ serve(async (req) => {
         summary: "Setor de FIIs continua aquecido com alta demanda por renda passiva.",
         category: "Investimentos",
         source: "InfoMoney",
-        source_url: "https://infomoney.com/fundos-imobiliarios-captacao",
+        source_url: `https://infomoney.com/fiis-${Date.now()}`,
         published_at: hoursAgo(12)
       },
       {
-        title: "Tesouro Direto: IPCA+ 2029 rende 6,2% ao ano",
-        summary: "Títulos públicos oferecem boa oportunidade para proteção contra inflação.",
+        title: "Petrobras anuncia novo projeto de exploração no pré-sal",
+        summary: "Estatal investe R$ 15 bilhões em novo campo petrolífero na Bacia de Santos.",
+        category: "Bolsa",
+        source: "Bloomberg",
+        source_url: `https://bloomberg.com/petrobras-${Date.now()}`,
+        published_at: hoursAgo(3)
+      },
+      {
+        title: "Itaú registra lucro de R$ 9 bi no trimestre",
+        summary: "Banco lidera setor financeiro com crescimento em carteira de crédito e serviços.",
+        category: "Bolsa",
+        source: "Valor Econômico",
+        source_url: `https://valor.globo.com/itau-${Date.now()}`,
+        published_at: hoursAgo(5)
+      },
+      {
+        title: "Magazine Luiza expande operação de marketplace",
+        summary: "Varejista amplia plataforma com 50 mil novos sellers e produtos.",
+        category: "Investimentos",
+        source: "Reuters",
+        source_url: `https://reuters.com/magalu-${Date.now()}`,
+        published_at: hoursAgo(7)
+      },
+      {
+        title: "B3 bate recorde com 5 milhões de investidores ativos",
+        summary: "Bolsa brasileira atinge novo marco histórico de pessoas físicas operando.",
+        category: "Bolsa",
+        source: "InfoMoney",
+        source_url: `https://infomoney.com/b3-${Date.now()}`,
+        published_at: hoursAgo(10)
+      },
+      {
+        title: "Ambev anuncia aquisição de cervejaria artesanal",
+        summary: "Gigante de bebidas investe R$ 500 milhões no segmento premium.",
+        category: "Bolsa",
+        source: "Financial Times",
+        source_url: `https://ft.com/ambev-${Date.now()}`,
+        published_at: hoursAgo(14)
+      },
+      {
+        title: "Tesouro Direto atinge R$ 120 bi em estoque",
+        summary: "Investimento em títulos públicos cresce 35% em relação ao ano anterior.",
         category: "Renda Fixa",
         source: "Valor Econômico",
-        source_url: "https://valor.globo.com/tesouro-direto-ipca",
+        source_url: `https://valor.globo.com/tesouro-${Date.now()}`,
+        published_at: hoursAgo(16)
+      },
+      {
+        title: "JBS expande operações na Ásia com nova planta",
+        summary: "Frigorífico investe US$ 200 milhões em unidade na Tailândia.",
+        category: "Bolsa",
+        source: "Bloomberg",
+        source_url: `https://bloomberg.com/jbs-${Date.now()}`,
         published_at: hoursAgo(18)
       },
       {
-        title: "Petrobras anuncia lucro recorde no trimestre",
-        summary: "Estatal registra melhor resultado trimestral em 5 anos com alta do petróleo.",
-        category: "Bolsa",
-        source: "Bloomberg",
-        source_url: "https://bloomberg.com/petrobras-earnings-record",
+        title: "Copel anuncia investimento em energia renovável",
+        summary: "Companhia destinará R$ 3 bilhões para projetos eólicos e solares.",
+        category: "Investimentos",
+        source: "Reuters",
+        source_url: `https://reuters.com/copel-${Date.now()}`,
         published_at: hoursAgo(20)
       },
       {
-        title: "ETFs de S&P 500 disponíveis para brasileiros",
-        summary: "Investidores brasileiros ganham acesso facilitado a fundos de índice americanos.",
-        category: "Investimentos",
-        source: "Financial Times",
-        source_url: "https://ft.com/brazil-sp500-etf-access",
+        title: "Natura &Co registra crescimento no e-commerce",
+        summary: "Vendas digitais sobem 45% e representam 60% do faturamento total.",
+        category: "Bolsa",
+        source: "Wall Street Journal",
+        source_url: `https://wsj.com/natura-${Date.now()}`,
         published_at: hoursAgo(22)
       },
       {
-        title: "Inflação desacelera para 3,8% em 12 meses",
-        summary: "IPCA mostra tendência de queda e aproximação da meta do Banco Central.",
-        category: "Economia",
-        source: "Reuters",
-        source_url: "https://reuters.com/brazil-inflation-report",
+        title: "Weg fecha contrato para fornecimento de turbinas",
+        summary: "Acordo de R$ 800 milhões com parque eólico no Nordeste.",
+        category: "Bolsa",
+        source: "InfoMoney",
+        source_url: `https://infomoney.com/weg-${Date.now()}`,
         published_at: hoursAgo(24)
       },
       {
-        title: "Nubank lança novo produto de crédito imobiliário",
-        summary: "Fintech amplia portfólio com financiamento para compra de imóveis.",
+        title: "Eletrobras apresenta plano de expansão até 2030",
+        summary: "Empresa planeja investir R$ 50 bi em geração e transmissão de energia.",
         category: "Investimentos",
-        source: "Wall Street Journal",
-        source_url: "https://wsj.com/nubank-mortgage-product",
+        source: "Financial Times",
+        source_url: `https://ft.com/eletrobras-${Date.now()}`,
         published_at: hoursAgo(26)
       },
       {
-        title: "Ouro atinge novo recorde histórico",
-        summary: "Metal precioso alcança US$ 2.100 a onça em meio a incertezas globais.",
-        category: "Investimentos",
+        title: "Localiza amplia frota com veículos elétricos",
+        summary: "Locadora investe R$ 2 bilhões em carros sustentáveis até 2025.",
+        category: "Bolsa",
         source: "Bloomberg",
-        source_url: "https://bloomberg.com/gold-price-record-high",
+        source_url: `https://bloomberg.com/localiza-${Date.now()}`,
         published_at: hoursAgo(28)
       },
       {
-        title: "Startups brasileiras captam US$ 1 bi no semestre",
-        summary: "Venture capital mantém interesse em tecnologia nacional apesar de cenário global.",
-        category: "Economia",
-        source: "Financial Times",
-        source_url: "https://ft.com/brazil-startup-funding",
+        title: "Suzano anuncia projeto de celulose sustentável",
+        summary: "Investimento de R$ 4 bi em nova planta com tecnologia verde.",
+        category: "Investimentos",
+        source: "Valor Econômico",
+        source_url: `https://valor.globo.com/suzano-${Date.now()}`,
         published_at: hoursAgo(30)
       }
     ];
+
+    // Seleciona 12 notícias aleatórias do pool
+    const shuffled = newsPool.sort(() => Math.random() - 0.5);
+    const mockNews = shuffled.slice(0, 12);
 
     // Insert news articles into database
     for (const newsItem of mockNews) {
