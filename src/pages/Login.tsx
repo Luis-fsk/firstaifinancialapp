@@ -172,7 +172,7 @@ const Login = () => {
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="flex justify-center items-center gap-2 mb-4">
+          <div className="flex justify-center items-center gap-1 mb-4">
             <img 
               src={growingLogo} 
               alt="Growing Logo" 
