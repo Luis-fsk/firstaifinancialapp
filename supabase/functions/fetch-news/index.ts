@@ -82,7 +82,7 @@ serve(async (req) => {
     }
 
     // Usar NewsAPI gratuita do The Guardian
-    const newsApiUrl = 'https://content.guardianapis.com/search?section=business&show-fields=headline,trailText,shortUrl&order-by=newest&page-size=15&api-key=test';
+    const newsApiUrl = 'https://content.guardianapis.com/search?section=business&show-fields=headline,trailText,shortUrl&order-by=newest&page-size=10&api-key=test';
     
     console.log('Fetching from The Guardian API...');
     const apiResponse = await fetch(newsApiUrl);
@@ -102,6 +102,18 @@ serve(async (req) => {
           source: 'The Guardian'
         });
       }
+    }
+
+    // Adicionar feeds RSS de Crypto
+    const cryptoFeeds = [
+      { url: 'https://www.coindesk.com/arc/outboundfeeds/rss/', source: 'CoinDesk' },
+      { url: 'https://cointelegraph.com/rss', source: 'CoinTelegraph' },
+    ];
+
+    for (const feed of cryptoFeeds) {
+      const items = await fetchRSSFeed(feed.url);
+      console.log(`Got ${items.length} items from ${feed.source}`);
+      allNewsItems.push(...items.map(item => ({ ...item, source: feed.source })));
     }
 
     // Selecionar as 15 notícias mais recentes
