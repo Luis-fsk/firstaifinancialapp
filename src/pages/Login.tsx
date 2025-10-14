@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, DollarSign, PieChart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import growingLogo from "@/assets/growing-logo.png";
+import growingLogo from "@/assets/growing-logo-new.png";
 
 const Login = () => {
   const [email, setEmail] = useState("");
