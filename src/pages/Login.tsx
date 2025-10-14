@@ -176,7 +176,7 @@ const Login = () => {
             <img 
               src={growingLogo} 
               alt="Growing Logo" 
-              className="h-16 w-16 object-contain"
+              className="h-24 w-24 object-contain"
             />
             <h1 className="text-3xl font-bold text-white">Growing</h1>
           </div>
