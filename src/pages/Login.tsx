@@ -178,7 +178,7 @@ const Login = () => {
               alt="Growing Logo" 
               className="h-24 w-24 object-contain"
             />
-            <h1 className="text-3xl font-bold text-white mt-2 -ml-2">Growing</h1>
+            <h1 className="text-3xl font-bold text-white mt-3 -ml-2">Growing</h1>
           </div>
           <p className="text-white/80 text-lg">
             Gerencie suas finanças com inteligência
