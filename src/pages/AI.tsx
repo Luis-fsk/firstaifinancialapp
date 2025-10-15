@@ -90,7 +90,7 @@ const AI = () => {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [conversationHistory, setConversationHistory] = useState<Array<{role: string; content: string}>>([]);
+  const [threadId, setThreadId] = useState<string | null>(null);
 
 
   const scrollToBottom = () => {
@@ -113,13 +113,13 @@ const AI = () => {
 
   async function perguntarIA(pergunta: string) {
     try {
-      // Add user message to conversation history
-      const newHistory = [...conversationHistory, { role: 'user', content: pergunta }];
+      console.log('Enviando para OpenAI Workflow via edge function:', pergunta, 'Thread:', threadId);
 
-      console.log('Enviando para OpenAI via edge function:', newHistory);
-
-      const { data, error } = await supabase.functions.invoke('openai-chat', {
-        body: { messages: newHistory }
+      const { data, error } = await supabase.functions.invoke('assistant-chat', {
+        body: { 
+          message: pergunta,
+          threadId: threadId 
+        }
       });
 
       if (error) {
@@ -127,12 +127,15 @@ const AI = () => {
         throw error;
       }
       
-      console.log('Resposta recebida do OpenAI:', data);
+      console.log('Resposta recebida do OpenAI Workflow:', data);
+      
+      // Salvar thread ID para manter histórico
+      if (data.threadId && !threadId) {
+        setThreadId(data.threadId);
+        console.log('Thread ID salvo:', data.threadId);
+      }
       
       const assistantResponse = data.message || "Desculpe, não consegui processar sua pergunta.";
-      
-      // Update conversation history with assistant response
-      setConversationHistory([...newHistory, { role: 'assistant', content: assistantResponse }]);
       
       return assistantResponse;
     } catch (error) {

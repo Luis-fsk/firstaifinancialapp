@@ -65,6 +65,9 @@ verify_jwt = false
 [functions.openai-chat]
 verify_jwt = false
 
+[functions.assistant-chat]
+verify_jwt = false
+
 [functions.daily-news-cron]
 verify_jwt = false
 
