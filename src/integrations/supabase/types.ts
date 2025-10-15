@@ -158,13 +158,6 @@ export type Database = {
             referencedRelation: "posts"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "post_likes_post_id_fkey"
-            columns: ["post_id"]
-            isOneToOne: false
-            referencedRelation: "public_posts"
-            referencedColumns: ["id"]
-          },
         ]
       }
       posts: {
@@ -287,13 +280,6 @@ export type Database = {
             referencedRelation: "posts"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "replies_post_id_fkey"
-            columns: ["post_id"]
-            isOneToOne: false
-            referencedRelation: "public_posts"
-            referencedColumns: ["id"]
-          },
         ]
       }
       reply_likes: {
@@ -320,13 +306,6 @@ export type Database = {
             foreignKeyName: "reply_likes_reply_id_fkey"
             columns: ["reply_id"]
             isOneToOne: false
-            referencedRelation: "public_replies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reply_likes_reply_id_fkey"
-            columns: ["reply_id"]
-            isOneToOne: false
             referencedRelation: "replies"
             referencedColumns: ["id"]
           },
@@ -334,95 +313,39 @@ export type Database = {
       }
     }
     Views: {
-      public_posts: {
-        Row: {
-          author_initials: string | null
-          author_name: string | null
-          category: string | null
-          content: string | null
-          created_at: string | null
-          id: string | null
-          image_url: string | null
-          likes_count: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          author_initials?: string | null
-          author_name?: string | null
-          category?: string | null
-          content?: string | null
-          created_at?: string | null
-          id?: string | null
-          image_url?: string | null
-          likes_count?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          author_initials?: string | null
-          author_name?: string | null
-          category?: string | null
-          content?: string | null
-          created_at?: string | null
-          id?: string | null
-          image_url?: string | null
-          likes_count?: number | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      public_replies: {
-        Row: {
-          author_initials: string | null
-          author_name: string | null
-          content: string | null
-          created_at: string | null
-          id: string | null
-          image_url: string | null
-          likes_count: number | null
-          post_id: string | null
-        }
-        Insert: {
-          author_initials?: string | null
-          author_name?: string | null
-          content?: string | null
-          created_at?: string | null
-          id?: string | null
-          image_url?: string | null
-          likes_count?: number | null
-          post_id?: string | null
-        }
-        Update: {
-          author_initials?: string | null
-          author_name?: string | null
-          content?: string | null
-          created_at?: string | null
-          id?: string | null
-          image_url?: string | null
-          likes_count?: number | null
-          post_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "replies_post_id_fkey"
-            columns: ["post_id"]
-            isOneToOne: false
-            referencedRelation: "posts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "replies_post_id_fkey"
-            columns: ["post_id"]
-            isOneToOne: false
-            referencedRelation: "public_posts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
       delete_user: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      get_public_posts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          author_initials: string
+          author_name: string
+          category: string
+          content: string
+          created_at: string
+          id: string
+          image_url: string
+          likes_count: number
+          updated_at: string
+        }[]
+      }
+      get_public_replies: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          author_initials: string
+          author_name: string
+          content: string
+          created_at: string
+          id: string
+          image_url: string
+          likes_count: number
+          post_id: string
+        }[]
       }
       user_liked_post: {
         Args: { post_id_param: string }
