@@ -288,6 +288,15 @@ export function UserMenu() {
             <span>Relatório Financeiro</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => window.open('/terms', '_blank')}>
+            <FileText className="mr-2 h-4 w-4" />
+            <span>Termos de Uso</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => window.open('/privacy', '_blank')}>
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Política de Privacidade</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-destructive">
             <Trash2 className="mr-2 h-4 w-4" />
             <span>Deletar conta</span>

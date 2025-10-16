@@ -818,7 +818,24 @@ const Community = () => {
             />
 
             {/* Create Post Dialog */}
-              {posts.map((post) => (
+              {posts.length === 0 ? (
+                <Card className="text-center py-12">
+                  <CardContent>
+                    <Users className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="text-lg font-semibold mb-2">Nenhum post ainda</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Seja o primeiro a compartilhar algo com a comunidade!
+                    </p>
+                    {user && (
+                      <Button onClick={() => setShowNewPost(true)} className="bg-gradient-warm hover:bg-gradient-warm/90">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Criar Primeiro Post
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                posts.map((post) => (
                 <Card key={post.id}>
                   <CardHeader>
                     <div className="flex items-start gap-4">
@@ -913,7 +930,8 @@ const Community = () => {
                     )}
                   </CardContent>
                 </Card>
-              ))}
+              ))
+              )}
             </div>
 
             {/* User Profile Dialog */}

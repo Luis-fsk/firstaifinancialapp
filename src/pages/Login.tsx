@@ -363,14 +363,25 @@ const Login = () => {
             </Tabs>
 
             <div className="mt-8 pt-6 border-t border-border">
-              <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-primary" />
-                  <span>Controle financeiro</span>
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-primary" />
+                    <span>Controle financeiro</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <PieChart className="h-4 w-4 text-secondary" />
+                    <span>IA inteligente</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <PieChart className="h-4 w-4 text-secondary" />
-                  <span>IA inteligente</span>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <a href="/terms" className="hover:text-primary transition-colors">
+                    Termos de Uso
+                  </a>
+                  <span>•</span>
+                  <a href="/privacy" className="hover:text-primary transition-colors">
+                    Política de Privacidade
+                  </a>
                 </div>
               </div>
             </div>

@@ -416,7 +416,22 @@ const News = () => {
               Todas as Notícias {selectedCategory !== "Todas" && `- ${selectedCategory}`}
             </h3>
             <div className="space-y-4">
-              {filteredArticles.map((article) => (
+              {filteredArticles.length === 0 ? (
+                <Card className="text-center py-12">
+                  <CardContent>
+                    <Newspaper className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="text-lg font-semibold mb-2">Nenhuma notícia encontrada</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Não há notícias disponíveis no momento. Tente atualizar ou selecionar outra categoria.
+                    </p>
+                    <Button onClick={() => fetchNews(true)} variant="outline">
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Atualizar Notícias
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                filteredArticles.map((article) => (
                 <Card 
                   key={article.id} 
                   className="group cursor-pointer hover:shadow-sm transition-all duration-300"
@@ -470,7 +485,8 @@ const News = () => {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              ))
+              )}
             </div>
           </div>
         )}
