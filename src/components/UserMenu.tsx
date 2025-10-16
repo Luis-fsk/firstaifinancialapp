@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Settings, HelpCircle, FileText, LogOut, Camera, Edit, Trash2, Sparkles } from "lucide-react";
+import { User, Settings, HelpCircle, FileText, LogOut, Camera, Edit, Trash2, Sparkles, Crown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -32,6 +33,7 @@ interface Goal {
 
 export function UserMenu() {
   const { user, profile, signOut } = useAuth();
+  const { isPremium } = useSubscription();
   const { toast } = useToast();
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
@@ -246,12 +248,19 @@ export function UserMenu() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={profile.avatar_url} alt={profile.display_name || profile.username} />
-              <AvatarFallback>
-                {(profile.display_name || profile.username || user.email)?.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <div className="relative">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={profile.avatar_url} alt={profile.display_name || profile.username} />
+                <AvatarFallback>
+                  {(profile.display_name || profile.username || user.email)?.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              {isPremium && (
+                <div className="absolute -bottom-1 -right-1 bg-gradient-to-r from-amber-500 to-yellow-500 rounded-full p-1">
+                  <Crown className="w-3 h-3 text-white" />
+                </div>
+              )}
+            </div>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -277,6 +286,14 @@ export function UserMenu() {
             <HelpCircle className="mr-2 h-4 w-4" />
             <span>Ajuda</span>
           </DropdownMenuItem>
+          
+          {!isPremium && (
+            <DropdownMenuItem onClick={() => window.location.href = '/premium'}>
+              <Crown className="mr-2 h-4 w-4 text-amber-500" />
+              <span className="text-amber-600 font-semibold">Assinar Premium</span>
+            </DropdownMenuItem>
+          )}
+          
           <DropdownMenuItem onClick={() => {
             setShowReportDialog(true);
             // Generate tips when opening the dialog

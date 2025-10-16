@@ -207,7 +207,12 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          plan_type: string
           posts_count: number | null
+          subscription_expires_at: string | null
+          subscription_id: string | null
+          subscription_status: string | null
+          trial_start: string | null
           updated_at: string
           user_id: string
           username: string
@@ -219,7 +224,12 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          plan_type?: string
           posts_count?: number | null
+          subscription_expires_at?: string | null
+          subscription_id?: string | null
+          subscription_status?: string | null
+          trial_start?: string | null
           updated_at?: string
           user_id: string
           username: string
@@ -231,7 +241,12 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          plan_type?: string
           posts_count?: number | null
+          subscription_expires_at?: string | null
+          subscription_id?: string | null
+          subscription_status?: string | null
+          trial_start?: string | null
           updated_at?: string
           user_id?: string
           username?: string

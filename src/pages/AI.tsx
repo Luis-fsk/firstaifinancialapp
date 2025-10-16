@@ -6,6 +6,8 @@ import { Bot, ArrowLeft, TrendingUp, PieChart, BarChart3, Send, User } from "luc
 import { useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
+import { useSubscription } from "@/hooks/useSubscription";
+import { PaywallDialog } from "@/components/PaywallDialog";
 
 interface Message {
   id: string;
@@ -89,8 +91,10 @@ const AI = () => {
   const [messages, setMessages] = useState<Message[]>(loadMessagesFromStorage());
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [conversationHistory, setConversationHistory] = useState<Array<{role: string; content: string}>>([]);
+  const { isPremium, isTrialExpired } = useSubscription();
 
 
   const scrollToBottom = () => {
@@ -100,6 +104,13 @@ const AI = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    // Check subscription status
+    if (isTrialExpired && !isPremium) {
+      setShowPaywall(true);
+    }
+  }, [isTrialExpired, isPremium]);
 
   // Salvar apenas as últimas 6 mensagens no localStorage
   useEffect(() => {
@@ -437,6 +448,8 @@ const AI = () => {
           </div>
         </div>
       </main>
+
+      <PaywallDialog open={showPaywall} onOpenChange={setShowPaywall} />
     </div>
   );
 };
