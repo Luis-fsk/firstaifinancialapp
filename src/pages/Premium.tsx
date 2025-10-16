@@ -44,8 +44,12 @@ export default function Premium() {
 
       // Open checkout in modal instead of redirecting
       if (data?.init_point) {
+        console.log('Setting checkout URL:', data.init_point);
+        console.log('Opening modal...');
         setCheckoutUrl(data.init_point);
         setShowCheckout(true);
+      } else {
+        console.error('No init_point received from API');
       }
     } catch (error) {
       console.error('Error creating subscription:', error);
@@ -176,28 +180,41 @@ export default function Premium() {
       </div>
 
       {/* Checkout Modal */}
-      <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
-        <DialogContent className="max-w-4xl h-[80vh] p-0">
+      <Dialog open={showCheckout} onOpenChange={(open) => {
+        console.log('Dialog state changing to:', open);
+        setShowCheckout(open);
+      }}>
+        <DialogContent className="max-w-5xl h-[90vh] p-0">
           <DialogHeader className="p-4 border-b">
             <div className="flex items-center justify-between">
               <DialogTitle>Finalizar Assinatura</DialogTitle>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setShowCheckout(false)}
+                onClick={() => {
+                  console.log('Closing modal');
+                  setShowCheckout(false);
+                }}
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
           </DialogHeader>
-          <div className="flex-1 overflow-hidden">
-            {checkoutUrl && (
+          <div className="flex-1 h-full">
+            {checkoutUrl ? (
               <iframe
                 src={checkoutUrl}
                 className="w-full h-full border-0"
                 title="Mercado Pago Checkout"
                 allow="payment"
+                sandbox="allow-forms allow-scripts allow-same-origin allow-top-navigation allow-popups"
+                onLoad={() => console.log('Iframe loaded successfully')}
+                onError={(e) => console.error('Iframe error:', e)}
               />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p>Carregando checkout...</p>
+              </div>
             )}
           </div>
         </DialogContent>
