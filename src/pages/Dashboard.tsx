@@ -6,7 +6,7 @@ import { Bot, Newspaper, Users, TrendingUp, LogOut, DollarSign, PieChart, LineCh
 import { useAuth } from "@/hooks/useAuth";
 import { UserMenu } from "@/components/UserMenu";
 import { FinancialGoalsSummary } from "@/components/FinancialGoalsSummary";
-import growingLogo from "@/assets/growing-logo.png";
+import growingLogo from "@/assets/growing-logo-new.png";
 
 const Dashboard = () => {
   const navigate = useNavigate();
