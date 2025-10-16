@@ -207,7 +207,7 @@ export default function Premium() {
                 className="w-full h-full border-0"
                 title="Mercado Pago Checkout"
                 allow="payment"
-                sandbox="allow-forms allow-scripts allow-same-origin allow-top-navigation allow-popups"
+                sandbox="allow-forms allow-scripts allow-same-origin"
                 onLoad={() => console.log('Iframe loaded successfully')}
                 onError={(e) => console.error('Iframe error:', e)}
               />
