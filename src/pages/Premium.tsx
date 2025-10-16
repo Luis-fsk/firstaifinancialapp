@@ -5,9 +5,10 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Check, Crown, Zap, Shield, TrendingUp } from 'lucide-react';
+import { Check, Crown, Zap, Shield, TrendingUp, X } from 'lucide-react';
 
 export default function Premium() {
   const navigate = useNavigate();
@@ -15,6 +16,8 @@ export default function Premium() {
   const { isPremium, daysLeftInTrial, isTrialActive } = useSubscription();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [showCheckout, setShowCheckout] = useState(false);
 
   const handleSubscribe = async () => {
     if (!user) {
@@ -39,9 +42,10 @@ export default function Premium() {
 
       if (error) throw error;
 
-      // Redirect to Mercado Pago checkout
+      // Open checkout in modal instead of redirecting
       if (data?.init_point) {
-        window.location.href = data.init_point;
+        setCheckoutUrl(data.init_point);
+        setShowCheckout(true);
       }
     } catch (error) {
       console.error('Error creating subscription:', error);
@@ -170,6 +174,34 @@ export default function Premium() {
           </Button>
         </div>
       </div>
+
+      {/* Checkout Modal */}
+      <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
+        <DialogContent className="max-w-4xl h-[80vh] p-0">
+          <DialogHeader className="p-4 border-b">
+            <div className="flex items-center justify-between">
+              <DialogTitle>Finalizar Assinatura</DialogTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowCheckout(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            {checkoutUrl && (
+              <iframe
+                src={checkoutUrl}
+                className="w-full h-full border-0"
+                title="Mercado Pago Checkout"
+                allow="payment"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
