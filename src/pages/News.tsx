@@ -6,6 +6,7 @@ import { Newspaper, ArrowLeft, Clock, TrendingUp, ExternalLink, Loader2, Refresh
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { cache, CACHE_TTL } from "@/lib/cache";
 
 interface NewsArticle {
   id: string;
@@ -67,6 +68,7 @@ const News = () => {
   const [selectedCategory, setSelectedCategory] = useState("Todas");
   const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
   const [analyzingArticle, setAnalyzingArticle] = useState<string | null>(null);
+  const [isUsingCache, setIsUsingCache] = useState(false);
   const clickTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
   useEffect(() => {
@@ -76,8 +78,26 @@ const News = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const fetchNews = async (showToast = false) => {
+  const fetchNews = async (showToast = false, forceRefresh = false) => {
     try {
+      // Check cache first unless force refresh
+      if (!forceRefresh) {
+        const cachedNews = cache.get<NewsArticle[]>('news_articles');
+        if (cachedNews && cachedNews.length > 0) {
+          setNewsArticles(cachedNews);
+          setLoading(false);
+          setIsUsingCache(true);
+          if (showToast) {
+            toast({
+              title: "Cache carregado",
+              description: "Notícias carregadas do cache local",
+            });
+          }
+          return;
+        }
+      }
+
+      setIsUsingCache(false);
       setLoading(true);
       
       // Fetch news from last 7 days only
@@ -100,12 +120,18 @@ const News = () => {
         return;
       }
 
-      setNewsArticles(existingNews || []);
+      const articles = existingNews || [];
+      setNewsArticles(articles);
+      
+      // Cache the results
+      if (articles.length > 0) {
+        cache.set('news_articles', articles, CACHE_TTL.NEWS);
+      }
       
       if (showToast) {
         toast({
           title: "Notícias atualizadas",
-          description: "As notícias foram carregadas com sucesso",
+          description: `${articles.length} notícias carregadas com sucesso`,
         });
       }
     } catch (error) {
@@ -131,8 +157,8 @@ const News = () => {
         throw error;
       }
       
-      // Reload the news from database
-      await fetchNews(true);
+      // Reload the news from database with force refresh
+      await fetchNews(true, true);
     } catch (error) {
       console.error('Error refreshing news:', error);
       toast({
@@ -293,7 +319,14 @@ const News = () => {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-foreground">Notícias Financeiras</h1>
-                <p className="text-sm text-muted-foreground">Últimas do mercado financeiro</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-muted-foreground">Últimas do mercado financeiro</p>
+                  {isUsingCache && (
+                    <Badge variant="outline" className="text-xs">
+                      Cache
+                    </Badge>
+                  )}
+                </div>
               </div>
               <Button
                 variant="outline"
@@ -424,7 +457,7 @@ const News = () => {
                     <p className="text-muted-foreground mb-4">
                       Não há notícias disponíveis no momento. Tente atualizar ou selecionar outra categoria.
                     </p>
-                    <Button onClick={() => fetchNews(true)} variant="outline">
+                    <Button onClick={() => fetchNews(true, true)} variant="outline">
                       <RefreshCw className="h-4 w-4 mr-2" />
                       Atualizar Notícias
                     </Button>

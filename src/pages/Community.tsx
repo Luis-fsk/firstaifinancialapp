@@ -12,6 +12,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { UserSearch } from "@/components/UserSearch";
+import { cache, CACHE_TTL } from "@/lib/cache";
 
 interface Post {
   id: string;
@@ -112,7 +113,16 @@ const Community = () => {
     loadConnections();
   }, []);
 
-  const loadPosts = async () => {
+  const loadPosts = async (forceRefresh = false) => {
+    // Check cache first unless force refresh
+    if (!forceRefresh) {
+      const cachedPosts = cache.get<Post[]>('community_posts');
+      if (cachedPosts) {
+        setPosts(cachedPosts);
+        return;
+      }
+    }
+
     const { data: postsData, error } = await supabase
       .from('posts')
       .select('*')
@@ -141,7 +151,7 @@ const Community = () => {
               .select('id')
               .eq('post_id', post.id)
               .eq('user_id', user.id)
-              .single();
+              .maybeSingle();
             liked = !!likeData;
           }
 
@@ -154,6 +164,9 @@ const Community = () => {
       );
 
       setPosts(postsWithReplies);
+      
+      // Cache the posts
+      cache.set('community_posts', postsWithReplies, CACHE_TTL.POSTS);
     }
   };
 
@@ -249,7 +262,10 @@ const Community = () => {
     setNewPostContent('');
     setNewPostImage('');
     setShowNewPost(false);
-    loadPosts();
+    
+    // Invalidate cache and reload
+    cache.delete('community_posts');
+    loadPosts(true);
     
     toast({
       title: "Sucesso!",
@@ -294,7 +310,9 @@ const Community = () => {
         .eq('id', postId);
     }
 
-    loadPosts();
+    // Invalidate cache and reload
+    cache.delete('community_posts');
+    loadPosts(true);
   };
 
   const addReply = async (postId: string) => {
@@ -332,7 +350,10 @@ const Community = () => {
 
     setReplyContent('');
     setReplyingTo('');
-    loadPosts();
+    
+    // Invalidate cache and reload
+    cache.delete('community_posts');
+    loadPosts(true);
     
     toast({
       title: "Resposta adicionada!",
