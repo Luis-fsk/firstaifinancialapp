@@ -19,17 +19,17 @@ serve(async (req) => {
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')!;
     
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log('Analyzing news article:', title);
-    console.log('Environment check - LOVABLE_API_KEY exists:', !!lovableApiKey);
+    console.log('Environment check - OPENAI_API_KEY exists:', !!openaiApiKey);
 
-    // Call Lovable AI to generate analysis
-    console.log('Making request to Lovable AI...');
+    // Call OpenAI API to generate analysis
+    console.log('Making request to OpenAI API...');
     const aiRequestBody = {
-      model: 'google/gemini-2.5-flash',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
@@ -51,6 +51,7 @@ Forneça uma análise de 2-3 parágrafos explicando:
 Seja objetivo e use linguagem acessível.`
         }
       ],
+      temperature: 0.7,
     };
 
     console.log('AI Request payload:', JSON.stringify(aiRequestBody, null, 2));
@@ -60,10 +61,10 @@ Seja objetivo e use linguagem acessível.`
 
     let aiResponse;
     try {
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${lovableApiKey}`,
+          'Authorization': `Bearer ${openaiApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(aiRequestBody),
@@ -78,21 +79,11 @@ Seja objetivo e use linguagem acessível.`
         console.error('AI API error response:', errorText);
         
         if (response.status === 429) {
-          return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }), {
+          return new Response(JSON.stringify({ error: "Limite de requisições excedido pela OpenAI. Tente novamente em alguns minutos." }), {
             status: 429,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-      
-      if (response.status === 402) {
-        console.error('Insufficient credits for AI analysis');
-        return new Response(JSON.stringify({ 
-          error: "Créditos insuficientes. Por favor, adicione créditos em https://docs.lovable.dev/features/ai" 
-        }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
 
         throw new Error(`AI API error: ${response.status} - ${errorText}`);
       }
@@ -113,24 +104,11 @@ Seja objetivo e use linguagem acessível.`
       throw fetchError;
     }
     
-    // Handle different response formats
+    // Extract analysis from OpenAI response
     let analysis = '';
     if (aiResponse.choices && aiResponse.choices[0]?.message?.content) {
-      // Standard OpenAI format
       analysis = aiResponse.choices[0].message.content;
-      console.log('Using standard OpenAI format');
-    } else if (aiResponse.reply) {
-      // Webhook format: { "reply": "response" }
-      analysis = aiResponse.reply;
-      console.log('Using webhook reply format');
-    } else if (aiResponse.resposta) {
-      // Portuguese format: { "resposta": "response" }
-      analysis = aiResponse.resposta;
-      console.log('Using Portuguese resposta format');
-    } else if (typeof aiResponse === 'string') {
-      // Sometimes the response might be a direct string
-      analysis = aiResponse;
-      console.log('Using direct string format');
+      console.log('Analysis extracted from OpenAI response');
     } else {
       console.error('Unexpected AI response format:', aiResponse);
       console.error('Available keys:', Object.keys(aiResponse || {}));
