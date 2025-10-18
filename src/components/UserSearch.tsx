@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Search, UserPlus, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { SAFE_PROFILE_FIELDS } from "@/lib/profileQueries";
 
 interface UserSearchProps {
   currentUserId?: string;
@@ -33,10 +34,10 @@ export const UserSearch = ({ currentUserId, onConnectionCreated }: UserSearchPro
     setSearching(true);
 
     try {
-      // Buscar usuários por username, display_name ou ID
+      // Buscar usuários por username, display_name ou ID (somente campos seguros)
       const { data: profiles, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(SAFE_PROFILE_FIELDS)
         .or(`username.ilike.%${searchQuery}%,display_name.ilike.%${searchQuery}%,user_id.eq.${searchQuery}`)
         .neq('user_id', currentUserId)
         .limit(10);

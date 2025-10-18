@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { UserSearch } from "@/components/UserSearch";
 import { cache, CACHE_TTL } from "@/lib/cache";
+import { SAFE_PROFILE_FIELDS } from "@/lib/profileQueries";
 
 interface Post {
   id: string;
@@ -363,9 +364,10 @@ const Community = () => {
 
   const viewUserProfile = async (userId: string) => {
     try {
+      // Use safe fields when viewing other users' profiles
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(SAFE_PROFILE_FIELDS)
         .eq('user_id', userId)
         .single();
 
