@@ -5,10 +5,12 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Check, Crown, Zap, Shield, TrendingUp, X } from 'lucide-react';
+import { Check, Crown, Zap, Shield, TrendingUp, Tag } from 'lucide-react';
 
 export default function Premium() {
   const navigate = useNavigate();
@@ -16,8 +18,7 @@ export default function Premium() {
   const { isPremium, daysLeftInTrial, isTrialActive } = useSubscription();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
-  const [showCheckout, setShowCheckout] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
 
   const handleSubscribe = async () => {
     if (!user) {
@@ -31,25 +32,44 @@ export default function Premium() {
 
     setLoading(true);
     try {
-      // Call Mercado Pago edge function
+      // Calcular valor com desconto se houver código promocional
+      let finalAmount = 12.50;
+      
+      if (promoCode.trim()) {
+        // Aqui você pode validar o código promocional
+        // Por enquanto, apenas um exemplo simples
+        if (promoCode.toUpperCase() === 'PROMO10') {
+          finalAmount = 11.25; // 10% de desconto
+          toast({
+            title: "Código promocional aplicado!",
+            description: "10% de desconto aplicado",
+          });
+        } else {
+          toast({
+            title: "Código inválido",
+            description: "O código promocional não é válido",
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke('create-subscription', {
         body: {
           userId: user.id,
           email: user.email,
-          planAmount: 12.50
+          planAmount: finalAmount
         }
       });
 
       if (error) throw error;
 
-      // Open checkout in modal instead of redirecting
+      // Redirecionar diretamente para o checkout do Mercado Pago
       if (data?.init_point) {
-        console.log('Setting checkout URL:', data.init_point);
-        console.log('Opening modal...');
-        setCheckoutUrl(data.init_point);
-        setShowCheckout(true);
+        window.location.href = data.init_point;
       } else {
-        console.error('No init_point received from API');
+        throw new Error('URL de checkout não recebida');
       }
     } catch (error) {
       console.error('Error creating subscription:', error);
@@ -58,7 +78,6 @@ export default function Premium() {
         description: "Não foi possível iniciar a assinatura. Tente novamente.",
         variant: "destructive"
       });
-    } finally {
       setLoading(false);
     }
   };
@@ -125,7 +144,7 @@ export default function Premium() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <Check className="w-5 h-5 text-primary" />
@@ -149,11 +168,39 @@ export default function Premium() {
                   </div>
                 </div>
 
-                <div className="pt-4 space-y-2 text-sm text-muted-foreground">
-                  <p>✓ Pagamento via PIX, Cartão ou Boleto</p>
-                  <p>✓ Cancele quando quiser</p>
-                  <p>✓ Suporte prioritário</p>
-                </div>
+                <Tabs defaultValue="payment" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="payment">Pagamento</TabsTrigger>
+                    <TabsTrigger value="promo">
+                      <Tag className="w-4 h-4 mr-2" />
+                      Código Promocional
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="payment" className="space-y-4 pt-4">
+                    <div className="space-y-2 text-sm text-muted-foreground">
+                      <p>✓ Pagamento seguro via Mercado Pago</p>
+                      <p>✓ Cancele quando quiser</p>
+                      <p>✓ Suporte prioritário</p>
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="promo" className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="promo-code">Código Promocional</Label>
+                      <Input
+                        id="promo-code"
+                        placeholder="Digite seu código"
+                        value={promoCode}
+                        onChange={(e) => setPromoCode(e.target.value)}
+                        className="uppercase"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Insira seu código promocional para obter desconto
+                      </p>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </CardContent>
               <CardFooter>
                 <Button 
@@ -162,7 +209,7 @@ export default function Premium() {
                   className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
                   size="lg"
                 >
-                  {loading ? 'Processando...' : 'Assinar Premium'}
+                  {loading ? 'Redirecionando...' : 'Assinar Premium'}
                 </Button>
               </CardFooter>
             </Card>
@@ -178,47 +225,6 @@ export default function Premium() {
           </Button>
         </div>
       </div>
-
-      {/* Checkout Modal */}
-      <Dialog open={showCheckout} onOpenChange={(open) => {
-        console.log('Dialog state changing to:', open);
-        setShowCheckout(open);
-      }}>
-        <DialogContent className="max-w-5xl h-[90vh] p-0">
-          <DialogHeader className="p-4 border-b">
-            <div className="flex items-center justify-between">
-              <DialogTitle>Finalizar Assinatura</DialogTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  console.log('Closing modal');
-                  setShowCheckout(false);
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </DialogHeader>
-          <div className="flex-1 h-full">
-            {checkoutUrl ? (
-              <iframe
-                src={checkoutUrl}
-                className="w-full h-full border-0"
-                title="Mercado Pago Checkout"
-                allow="payment"
-                sandbox="allow-forms allow-scripts allow-same-origin allow-top-navigation allow-popups"
-                onLoad={() => console.log('Iframe loaded successfully')}
-                onError={(e) => console.error('Iframe error:', e)}
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <p>Carregando checkout...</p>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
