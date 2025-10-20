@@ -76,3 +76,12 @@ verify_jwt = false
 
 [functions.financial-tips]
 verify_jwt = true
+
+[functions.subscription-webhook]
+verify_jwt = false
+
+[functions.create-subscription]
+verify_jwt = true
+
+[functions.check-subscriptions]
+verify_jwt = false
