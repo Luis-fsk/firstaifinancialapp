@@ -44,7 +44,14 @@ serve(async (req) => {
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+      console.error('LOVABLE_API_KEY not configured');
+      return new Response(
+        JSON.stringify({ 
+          approved: true, 
+          reason: 'Moderação temporariamente indisponível - conteúdo aprovado por padrão' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
     }
 
     // Use Lovable AI to analyze content
@@ -107,14 +114,28 @@ Responda APENAS com um JSON válido no seguinte formato:
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 402 }
         );
       }
-      throw new Error(`AI API error: ${aiResponse.status}`);
+      console.error('AI API error:', aiResponse.status);
+      return new Response(
+        JSON.stringify({ 
+          approved: true, 
+          reason: 'Erro na moderação - conteúdo aprovado por padrão' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
     }
 
     const aiData = await aiResponse.json();
     const aiContent = aiData.choices?.[0]?.message?.content;
 
     if (!aiContent) {
-      throw new Error('No content in AI response');
+      console.error('No content in AI response');
+      return new Response(
+        JSON.stringify({ 
+          approved: true, 
+          reason: 'Erro na moderação - conteúdo aprovado por padrão' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
     }
 
     console.log('AI Response:', aiContent);
@@ -147,8 +168,7 @@ Responda APENAS com um JSON válido no seguinte formato:
     return new Response(
       JSON.stringify({ 
         approved: true, 
-        reason: 'Erro no sistema de moderação - conteúdo aprovado por padrão',
-        error: error instanceof Error ? error.message : 'Erro desconhecido' 
+        reason: 'Erro no sistema de moderação - conteúdo aprovado por padrão'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );

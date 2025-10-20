@@ -32,34 +32,12 @@ export default function Premium() {
 
     setLoading(true);
     try {
-      // Calcular valor com desconto se houver código promocional
-      let finalAmount = 12.50;
-      
-      if (promoCode.trim()) {
-        // Aqui você pode validar o código promocional
-        // Por enquanto, apenas um exemplo simples
-        if (promoCode.toUpperCase() === 'PROMO10') {
-          finalAmount = 11.25; // 10% de desconto
-          toast({
-            title: "Código promocional aplicado!",
-            description: "10% de desconto aplicado",
-          });
-        } else {
-          toast({
-            title: "Código inválido",
-            description: "O código promocional não é válido",
-            variant: "destructive"
-          });
-          setLoading(false);
-          return;
-        }
-      }
-
+      // Send promo code to server for validation - never trust client!
       const { data, error } = await supabase.functions.invoke('create-subscription', {
         body: {
           userId: user.id,
           email: user.email,
-          planAmount: finalAmount
+          promoCode: promoCode.trim() || undefined
         }
       });
 

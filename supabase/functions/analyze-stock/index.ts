@@ -25,7 +25,11 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+      console.error('LOVABLE_API_KEY not configured');
+      return new Response(
+        JSON.stringify({ error: 'Serviço temporariamente indisponível' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 503 }
+      );
     }
 
     // Buscar dados da ação usando Yahoo Finance API (gratuita)
@@ -147,14 +151,22 @@ IMPORTANTE: Retorne APENAS um JSON válido no formato:
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 402 }
         );
       }
-      throw new Error(`AI API error: ${aiResponse.status}`);
+      console.error('AI API error:', aiResponse.status);
+      return new Response(
+        JSON.stringify({ error: 'Erro ao processar análise. Tente novamente.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
     }
 
     const aiData = await aiResponse.json();
     const aiContent = aiData.choices?.[0]?.message?.content;
 
     if (!aiContent) {
-      throw new Error('No content in AI response');
+      console.error('No content in AI response');
+      return new Response(
+        JSON.stringify({ error: 'Erro ao processar análise. Tente novamente.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
     }
 
     console.log('AI Response received');
@@ -206,7 +218,7 @@ IMPORTANTE: Retorne APENAS um JSON válido no formato:
   } catch (error) {
     console.error('Error in analyze-stock function:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Erro ao analisar ação' }),
+      JSON.stringify({ error: 'Erro ao analisar ação. Tente novamente.' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }

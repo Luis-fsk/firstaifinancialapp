@@ -9,7 +9,7 @@ const corsHeaders = {
 interface SubscriptionRequest {
   userId: string;
   email: string;
-  planAmount: number;
+  promoCode?: string;
 }
 
 serve(async (req) => {
@@ -18,14 +18,30 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, email, planAmount }: SubscriptionRequest = await req.json();
+    const { userId, email, promoCode }: SubscriptionRequest = await req.json();
     const mercadoPagoToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
 
     if (!mercadoPagoToken) {
-      throw new Error('Mercado Pago token not configured');
+      console.error('MERCADO_PAGO_ACCESS_TOKEN not configured');
+      return new Response(
+        JSON.stringify({ error: 'Serviço temporariamente indisponível' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 503,
+        }
+      );
     }
 
-    console.log('Creating subscription for user:', userId);
+    // SERVER-SIDE PRICE VALIDATION - Never trust client prices!
+    const BASE_PRICE = 12.50;
+    let validatedAmount = BASE_PRICE;
+
+    // Validate promo code server-side
+    if (promoCode && promoCode.toUpperCase() === 'PROMO10') {
+      validatedAmount = BASE_PRICE * 0.9; // 10% discount = R$ 11.25
+    }
+
+    console.log('Creating subscription for user:', userId, 'Amount:', validatedAmount);
 
     // Create subscription preference in Mercado Pago
     const preferenceResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
@@ -40,7 +56,7 @@ serve(async (req) => {
             title: 'Plano Premium - Mensal',
             description: 'Acesso completo a todos os recursos da plataforma',
             quantity: 1,
-            unit_price: planAmount,
+            unit_price: validatedAmount,
             currency_id: 'BRL',
           }
         ],
@@ -61,7 +77,13 @@ serve(async (req) => {
     if (!preferenceResponse.ok) {
       const errorData = await preferenceResponse.text();
       console.error('Mercado Pago error:', errorData);
-      throw new Error('Failed to create payment preference');
+      return new Response(
+        JSON.stringify({ error: 'Erro ao processar pagamento. Tente novamente.' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      );
     }
 
     const preference = await preferenceResponse.json();
@@ -93,9 +115,8 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error in create-subscription:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: 'Erro ao criar assinatura. Tente novamente.' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,

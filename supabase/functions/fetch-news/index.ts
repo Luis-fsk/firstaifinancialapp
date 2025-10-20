@@ -78,7 +78,13 @@ serve(async (req) => {
     
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!lovableApiKey) {
-      throw new Error('LOVABLE_API_KEY not configured');
+      console.error('LOVABLE_API_KEY not configured');
+      return new Response(JSON.stringify({ 
+        error: 'Serviço temporariamente indisponível' 
+      }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Usar NewsAPI gratuita do The Guardian
@@ -241,7 +247,7 @@ IMPORTANTE: Retorne APENAS o JSON, sem nenhum texto adicional.`
   } catch (error) {
     console.error('Error in fetch-news function:', error);
     return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: 'Erro ao buscar notícias. Tente novamente.' 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
