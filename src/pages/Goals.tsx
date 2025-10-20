@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, PlusCircle, Target, Sparkles, TrendingUp, DollarSign, PiggyBank, Rocket, Home, GraduationCap, Plane, Car, Heart, Edit, Trash2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, PlusCircle, Target, Sparkles, TrendingUp, DollarSign, PiggyBank, Rocket, Home, GraduationCap, Plane, Car, Heart, Edit, Trash2, CheckCircle2, Lightbulb } from "lucide-react";
 import { toast } from "sonner";
 import { UserMenu } from "@/components/UserMenu";
 import { supabase } from "@/integrations/supabase/client";
@@ -86,6 +86,7 @@ const Goals = () => {
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
   const [aiResponse, setAiResponse] = useState<string>("");
   const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [selectedGoalForAI, setSelectedGoalForAI] = useState<Goal | null>(null);
   const [newGoal, setNewGoal] = useState({
     title: '',
     description: '',
@@ -171,46 +172,59 @@ const Goals = () => {
     toast.success("Meta atualizada!");
   };
 
-  const getAITips = async () => {
-    if (goals.length === 0) {
-      toast.error("Adicione algumas metas primeiro!");
-      return;
-    }
-
+  const getAITips = async (goal: Goal) => {
+    setSelectedGoalForAI(goal);
     setIsLoadingAI(true);
     setIsAIDialogOpen(true);
     setAiResponse("");
 
     try {
-      const goalsContext = goals.map(g => ({
-        title: g.title,
-        category: g.category,
-        targetAmount: g.targetAmount,
-        currentAmount: g.currentAmount,
-        progress: ((g.currentAmount / g.targetAmount) * 100).toFixed(1),
-        deadline: g.deadline
-      }));
+      const progress = ((goal.currentAmount / goal.targetAmount) * 100).toFixed(1);
+      const remaining = goal.targetAmount - goal.currentAmount;
+      const categoryLabels = {
+        savings: 'Poupança',
+        investment: 'Investimento',
+        purchase: 'Compra',
+        education: 'Educação',
+        travel: 'Viagem',
+        other: 'Outro'
+      };
 
-      const { data, error } = await supabase.functions.invoke('openai-chat', {
+      const goalContext = `
+Meta: ${goal.title}
+Categoria: ${categoryLabels[goal.category]}
+Descrição: ${goal.description || 'Sem descrição'}
+Valor Alvo: R$ ${goal.targetAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+Valor Atual: R$ ${goal.currentAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+Faltam: R$ ${remaining.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+Progresso: ${progress}%
+${goal.deadline ? `Prazo: ${new Date(goal.deadline).toLocaleDateString('pt-BR')}` : 'Sem prazo definido'}
+      `;
+
+      const { data, error } = await supabase.functions.invoke('agent-chat', {
         body: {
-          prompt: `Você é um consultor financeiro especializado em planejamento de metas. 
+          message: `Você é um consultor financeiro especializado em planejamento de metas. 
 
-Analise as metas financeiras do usuário abaixo e forneça:
-1. Uma análise geral do progresso
-2. Dicas específicas para alcançar cada meta mais rapidamente
-3. Sugestões de priorização
-4. Estratégias de economia e investimento personalizadas
+Analise a meta financeira abaixo e forneça um plano detalhado e personalizado:
 
-Metas do usuário:
-${JSON.stringify(goalsContext, null, 2)}
+${goalContext}
 
-Seja específico, prático e motivador. Use exemplos concretos.`
+Forneça:
+1. **Análise do Progresso Atual**: Avalie onde a pessoa está e o que já conquistou
+2. **Plano de Ação Específico**: Dicas práticas e acionáveis para alcançar esta meta
+3. **Estratégias de Economia**: Como economizar e acelerar o progresso
+4. **Sugestões de Investimento**: Se aplicável, onde investir o dinheiro poupado
+5. **Cronograma Sugerido**: Timeline realista para alcançar a meta
+6. **Motivação**: Mensagem encorajadora e próximos passos
+
+Seja MUITO específico, prático e motivador. Use números, exemplos concretos e cálculos quando possível.`,
+          conversationHistory: []
         }
       });
 
       if (error) throw error;
 
-      setAiResponse(data.generatedText || "Não foi possível gerar dicas no momento.");
+      setAiResponse(data.message || "Não foi possível gerar dicas no momento.");
     } catch (error: any) {
       console.error('Erro ao obter dicas da IA:', error);
       toast.error("Erro ao gerar dicas. Tente novamente.");
@@ -286,14 +300,6 @@ Seja específico, prático e motivador. Use exemplos concretos.`
               >
                 <PlusCircle className="mr-2 h-5 w-5" />
                 Nova Meta
-              </Button>
-              <Button 
-                onClick={getAITips}
-                variant="outline"
-                className="bg-white/10 text-white border-white/30 hover:bg-white/20"
-              >
-                <Sparkles className="mr-2 h-5 w-5" />
-                Dicas da IA
               </Button>
             </div>
           </div>
@@ -417,6 +423,13 @@ Seja específico, prático e motivador. Use exemplos concretos.`
                           />
                           <Button variant="outline">Atualizar</Button>
                         </div>
+                        <Button 
+                          onClick={() => getAITips(goal)}
+                          className="w-full bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90"
+                        >
+                          <Lightbulb className="mr-2 h-4 w-4" />
+                          Dicas da IA para esta Meta
+                        </Button>
                       </CardContent>
                     </Card>
                   );
@@ -674,11 +687,11 @@ Seja específico, prático e motivador. Use exemplos concretos.`
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-6 w-6 text-primary" />
+              <Lightbulb className="h-6 w-6 text-primary" />
               Dicas Personalizadas da IA
             </DialogTitle>
             <DialogDescription>
-              Análise inteligente das suas metas financeiras
+              {selectedGoalForAI ? `Análise detalhada: ${selectedGoalForAI.title}` : 'Análise inteligente da sua meta financeira'}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
