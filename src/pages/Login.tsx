@@ -63,7 +63,7 @@ const Login = () => {
 
         toast({
           title: "Login realizado com sucesso!",
-          description: `Bem-vindo ao seu app de finanças. Session ID: ${sessionId}`,
+          description: "Bem-vindo ao seu app de finanças.",
         });
         navigate("/dashboard");
       }

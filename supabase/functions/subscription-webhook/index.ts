@@ -18,9 +18,56 @@ serve(async (req) => {
     );
 
     const mercadoPagoToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+    const mercadoPagoWebhookSecret = Deno.env.get('MERCADO_PAGO_WEBHOOK_SECRET');
+    
     const body = await req.json();
-
     console.log('Webhook received:', body);
+
+    // Verify Mercado Pago signature for security
+    const xSignature = req.headers.get('x-signature');
+    const xRequestId = req.headers.get('x-request-id');
+    
+    if (!xSignature || !xRequestId || !mercadoPagoWebhookSecret) {
+      console.error('Missing signature or webhook secret');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Invalid signature' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        }
+      );
+    }
+
+    // Verify the signature using HMAC SHA256
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(mercadoPagoWebhookSecret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    
+    const signature = await crypto.subtle.sign(
+      'HMAC',
+      key,
+      encoder.encode(xRequestId)
+    );
+    
+    const expectedSignature = Array.from(new Uint8Array(signature))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+    
+    if (xSignature !== expectedSignature) {
+      console.error('Invalid signature');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Signature verification failed' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        }
+      );
+    }
 
     // Mercado Pago sends notifications with payment updates
     if (body.type === 'payment') {

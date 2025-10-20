@@ -60,19 +60,19 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.moderate-content]
-verify_jwt = false
+verify_jwt = true
 
 [functions.openai-chat]
-verify_jwt = false
+verify_jwt = true
 
 [functions.assistant-chat]
-verify_jwt = false
+verify_jwt = true
 
 [functions.agent-chat]
-verify_jwt = false
+verify_jwt = true
 
 [functions.daily-news-cron]
 verify_jwt = false
 
 [functions.financial-tips]
-verify_jwt = false
+verify_jwt = true
