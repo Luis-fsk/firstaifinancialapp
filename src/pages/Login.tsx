@@ -9,6 +9,20 @@ import { TrendingUp, DollarSign, PieChart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import growingLogo from "@/assets/growing-logo-new.png";
+import { z } from "zod";
+
+const loginSchema = z.object({
+  email: z.string().email('Email inválido').max(255, 'Email muito longo'),
+  password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres').max(72, 'Senha muito longa')
+});
+
+const signupSchema = loginSchema.extend({
+  username: z.string()
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Use apenas letras, números, _ e -')
+    .min(3, 'Mínimo 3 caracteres')
+    .max(30, 'Máximo 30 caracteres'),
+  displayName: z.string().max(100, 'Máximo 100 caracteres').optional()
+});
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -37,9 +51,22 @@ const Login = () => {
     setIsLoading(true);
 
     try {
+      // Validate input
+      const validation = loginSchema.safeParse({ email, password });
+      if (!validation.success) {
+        const firstError = validation.error.errors[0];
+        toast({
+          title: "Erro de validação",
+          description: firstError.message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: validation.data.email,
+        password: validation.data.password,
       });
 
       if (error) {
@@ -83,10 +110,19 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      if (!username.trim()) {
+      // Validate input
+      const validation = signupSchema.safeParse({ 
+        email, 
+        password, 
+        username,
+        displayName 
+      });
+      
+      if (!validation.success) {
+        const firstError = validation.error.errors[0];
         toast({
-          title: "Username obrigatório",
-          description: "Por favor, insira um nome de usuário.",
+          title: "Erro de validação",
+          description: firstError.message,
           variant: "destructive",
         });
         setIsLoading(false);
@@ -96,13 +132,13 @@ const Login = () => {
       const redirectUrl = `${window.location.origin}/`;
       
       const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
+        email: validation.data.email,
+        password: validation.data.password,
         options: {
           emailRedirectTo: redirectUrl,
           data: {
-            username: username,
-            display_name: displayName || username,
+            username: validation.data.username,
+            display_name: validation.data.displayName || validation.data.username,
           }
         }
       });
@@ -138,7 +174,19 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      // Validate email
+      const emailValidation = z.string().email('Email inválido').safeParse(resetEmail);
+      if (!emailValidation.success) {
+        toast({
+          title: "Erro de validação",
+          description: emailValidation.error.errors[0].message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      const { error } = await supabase.auth.resetPasswordForEmail(emailValidation.data, {
         redirectTo: `${window.location.origin}/`,
       });
 
@@ -339,16 +387,16 @@ const Login = () => {
                     <Label htmlFor="signup-password" className="text-sm font-medium">
                       Senha
                     </Label>
-                    <Input
-                      id="signup-password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="h-11 border-border focus:ring-primary"
-                      required
-                      minLength={6}
-                    />
+                      <Input
+                        id="signup-password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="h-11 border-border focus:ring-primary"
+                        required
+                        minLength={8}
+                      />
                   </div>
 
                   <Button 

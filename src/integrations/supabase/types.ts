@@ -404,6 +404,21 @@ export type Database = {
           post_id: string
         }[]
       }
+      get_safe_connection_profile: {
+        Args: { target_user_id: string }
+        Returns: {
+          avatar_url: string
+          bio: string
+          connections_count: number
+          created_at: string
+          display_name: string
+          id: string
+          posts_count: number
+          updated_at: string
+          user_id: string
+          username: string
+        }[]
+      }
       user_liked_post: {
         Args: { post_id_param: string }
         Returns: boolean

@@ -5,6 +5,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Server-side content validation
+const MAX_CONTENT_LENGTH = 5000;
+
+function validateContent(content: string): { valid: boolean; reason?: string } {
+  if (!content || content.trim().length === 0) {
+    return { valid: false, reason: 'Conteúdo vazio' };
+  }
+  
+  if (content.length > MAX_CONTENT_LENGTH) {
+    return { valid: false, reason: `Conteúdo muito longo (máximo ${MAX_CONTENT_LENGTH} caracteres)` };
+  }
+  
+  return { valid: true };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -13,9 +28,14 @@ serve(async (req) => {
   try {
     const { content } = await req.json();
     
-    if (!content) {
+    // Validate content first
+    const contentValidation = validateContent(content);
+    if (!contentValidation.valid) {
       return new Response(
-        JSON.stringify({ error: 'Conteúdo é obrigatório' }),
+        JSON.stringify({ 
+          approved: false, 
+          reason: contentValidation.reason 
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }

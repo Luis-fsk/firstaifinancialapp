@@ -125,7 +125,40 @@ serve(async (req) => {
       console.log('Payment details:', payment);
 
       const userId = payment.external_reference;
+      
+      // Validate userId is a valid UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!userId || !uuidRegex.test(userId)) {
+        console.error('Invalid user ID format:', userId);
+        return new Response(
+          JSON.stringify({ error: 'Invalid external reference format' }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400,
+          }
+        );
+      }
+
+      // Verify user exists before updating
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+      
+      if (profileError || !profile) {
+        console.error('User not found:', userId);
+        return new Response(
+          JSON.stringify({ error: 'User not found' }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 404,
+          }
+        );
+      }
+
       const status = payment.status; // approved, pending, rejected, etc.
+      console.log('Processing payment for user:', userId, 'with status:', status);
 
       // Update user subscription status
       if (status === 'approved') {

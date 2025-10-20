@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { UserSearch } from "@/components/UserSearch";
 import { cache, CACHE_TTL } from "@/lib/cache";
 import { SAFE_PROFILE_FIELDS } from "@/lib/profileQueries";
+import { postSchema, replySchema, messageSchema } from "@/lib/postValidation";
 
 interface Post {
   id: string;
@@ -199,10 +200,27 @@ const Community = () => {
   };
 
   const createPost = async () => {
-    if (!newPostContent.trim() || !user || !userProfile) {
+    if (!user || !userProfile) {
       toast({
         title: "Erro",
         description: "Você precisa estar logado para criar posts",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate post content
+    const validation = postSchema.safeParse({
+      content: newPostContent,
+      category: newPostCategory,
+      image_url: newPostImage || ''
+    });
+
+    if (!validation.success) {
+      const firstError = validation.error.errors[0];
+      toast({
+        title: "Erro de validação",
+        description: firstError.message,
         variant: "destructive"
       });
       return;
@@ -317,10 +335,26 @@ const Community = () => {
   };
 
   const addReply = async (postId: string) => {
-    if (!replyContent.trim() || !user || !userProfile) {
+    if (!user || !userProfile) {
       toast({
         title: "Erro",
         description: "Você precisa estar logado para responder",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate reply content
+    const validation = replySchema.safeParse({
+      content: replyContent,
+      image_url: ''  // Replies don't have images in current implementation
+    });
+
+    if (!validation.success) {
+      const firstError = validation.error.errors[0];
+      toast({
+        title: "Erro de validação",
+        description: firstError.message,
         variant: "destructive"
       });
       return;
@@ -337,7 +371,7 @@ const Community = () => {
         user_id: user.id,
         author_name: userProfile.display_name || userProfile.username || 'Usuário',
         author_initials: initials,
-        content: replyContent
+        content: validation.data.content
       });
 
     if (error) {
@@ -473,14 +507,36 @@ const Community = () => {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedConnection || !user) return;
+    if (!selectedConnection || !user) {
+      toast({
+        title: "Erro",
+        description: "Você precisa estar logado",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate message content
+    const validation = messageSchema.safeParse({
+      content: newMessage
+    });
+
+    if (!validation.success) {
+      const firstError = validation.error.errors[0];
+      toast({
+        title: "Erro de validação",
+        description: firstError.message,
+        variant: "destructive"
+      });
+      return;
+    }
 
     const { error } = await supabase
       .from('messages')
       .insert({
         sender_id: user.id,
         receiver_id: selectedConnection,
-        content: newMessage
+        content: validation.data.content
       });
 
     if (error) {
