@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cache, CACHE_TTL } from "@/lib/cache";
+import DOMPurify from 'dompurify';
 
 interface NewsArticle {
   id: string;
@@ -57,7 +58,11 @@ const formatMessage = (text: string): string => {
   // Preserve line breaks
   formatted = formatted.replace(/\n/g, '<br>');
   
-  return formatted;
+  // Sanitize HTML to prevent XSS attacks
+  return DOMPurify.sanitize(formatted, {
+    ALLOWED_TAGS: ['strong', 'em', 'br', 'table', 'tbody', 'tr', 'td', 'th', 'h2', 'h3', 'div'],
+    ALLOWED_ATTR: ['class']
+  });
 };
 
 const News = () => {

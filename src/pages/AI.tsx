@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useSubscription } from "@/hooks/useSubscription";
 import { PaywallDialog } from "@/components/PaywallDialog";
+import DOMPurify from 'dompurify';
 
 interface Message {
   id: string;
@@ -57,7 +58,11 @@ const formatMessage = (text: string): string => {
   // Preserve line breaks
   formatted = formatted.replace(/\n/g, '<br>');
   
-  return formatted;
+  // Sanitize HTML to prevent XSS attacks
+  return DOMPurify.sanitize(formatted, {
+    ALLOWED_TAGS: ['strong', 'em', 'br', 'table', 'tbody', 'tr', 'td', 'th', 'h2', 'h3', 'div'],
+    ALLOWED_ATTR: ['class']
+  });
 };
 
 
