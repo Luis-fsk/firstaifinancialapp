@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bot, Newspaper, Users, TrendingUp, LogOut, DollarSign, PieChart, LineChart } from "lucide-react";
+import { Bot, Newspaper, Users, TrendingUp, LogOut, DollarSign, PieChart, LineChart, Target } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { UserMenu } from "@/components/UserMenu";
 import { FinancialGoalsSummary } from "@/components/FinancialGoalsSummary";
@@ -33,6 +33,14 @@ const Dashboard = () => {
       icon: PieChart,
       path: "/finances",
       gradient: "bg-gradient-hero",
+      textColor: "text-white",
+    },
+    {
+      title: "Metas",
+      description: "Defina e acompanhe seus objetivos financeiros com IA",
+      icon: Target,
+      path: "/goals",
+      gradient: "bg-gradient-warm",
       textColor: "text-white",
     },
     {
@@ -116,7 +124,7 @@ const Dashboard = () => {
         </div>
 
         {/* Feature Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (
