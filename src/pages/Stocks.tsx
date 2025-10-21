@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,8 @@ import { ArrowLeft, TrendingUp, Search, Loader2, LineChart, AlertCircle } from "
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useSubscription } from "@/hooks/useSubscription";
+import { PaywallDialog } from "@/components/PaywallDialog";
 
 interface StockAnalysis {
   company_name: string;
@@ -28,6 +30,14 @@ const Stocks = () => {
   const [stockSymbol, setStockSymbol] = useState("");
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<StockAnalysis | null>(null);
+  const { isPremium, isTrialExpired } = useSubscription();
+  const [showPaywall, setShowPaywall] = useState(false);
+
+  useEffect(() => {
+    if (isTrialExpired && !isPremium) {
+      setShowPaywall(true);
+    }
+  }, [isTrialExpired, isPremium]);
 
   const analyzeStock = async () => {
     if (!stockSymbol.trim()) {
@@ -315,6 +325,8 @@ const Stocks = () => {
           </Card>
         )}
       </main>
+
+      <PaywallDialog open={showPaywall} onOpenChange={setShowPaywall} />
     </div>
   );
 };

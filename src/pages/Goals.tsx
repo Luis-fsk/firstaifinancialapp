@@ -17,6 +17,8 @@ import growingLogo from "@/assets/growing-logo-new.png";
 import DOMPurify from 'dompurify';
 import { goalSchema } from "@/lib/goalValidation";
 import { z } from "zod";
+import { useSubscription } from "@/hooks/useSubscription";
+import { PaywallDialog } from "@/components/PaywallDialog";
 
 interface Goal {
   id: string;
@@ -89,6 +91,8 @@ const Goals = () => {
   const [aiResponse, setAiResponse] = useState<string>("");
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [selectedGoalForAI, setSelectedGoalForAI] = useState<Goal | null>(null);
+  const { isPremium, isTrialExpired } = useSubscription();
+  const [showPaywall, setShowPaywall] = useState(false);
   const [newGoal, setNewGoal] = useState({
     title: '',
     description: '',
@@ -97,6 +101,12 @@ const Goals = () => {
     currentAmount: '0',
     deadline: ''
   });
+
+  useEffect(() => {
+    if (isTrialExpired && !isPremium) {
+      setShowPaywall(true);
+    }
+  }, [isTrialExpired, isPremium]);
 
   // Load goals from database
   useEffect(() => {
@@ -832,6 +842,8 @@ Seja MUITO específico, prático e motivador. Use números, exemplos concretos e
           </div>
         </DialogContent>
       </Dialog>
+
+      <PaywallDialog open={showPaywall} onOpenChange={setShowPaywall} />
     </div>
   );
 };

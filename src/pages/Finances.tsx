@@ -15,6 +15,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { expenseSchema, quizAnswersSchema } from "@/lib/financeValidation";
 import { z } from "zod";
+import { useSubscription } from "@/hooks/useSubscription";
+import { PaywallDialog } from "@/components/PaywallDialog";
 
 interface QuizAnswers {
   fixedExpenses: number;
@@ -60,6 +62,14 @@ const Finances = () => {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { isPremium, isTrialExpired } = useSubscription();
+  const [showPaywall, setShowPaywall] = useState(false);
+
+  useEffect(() => {
+    if (isTrialExpired && !isPremium) {
+      setShowPaywall(true);
+    }
+  }, [isTrialExpired, isPremium]);
 
   // Calcular metas baseadas nas despesas reais
   const calculateGoals = (): Goal[] => {
@@ -792,6 +802,8 @@ const Finances = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <PaywallDialog open={showPaywall} onOpenChange={setShowPaywall} />
     </div>
   );
 };
