@@ -51,21 +51,110 @@ export function UserMenu() {
     avatar_url: profile?.avatar_url || "",
   });
 
-  // Load financial goals
+  // Load financial goals from database
   useEffect(() => {
-    const loadFinancialGoals = () => {
-      const savedGoals = localStorage.getItem('financeGoals');
-      if (savedGoals) {
-        setFinancialGoals(JSON.parse(savedGoals));
+    const loadFinancialGoals = async () => {
+      if (!user) return;
+
+      try {
+        const { data: quizData } = await supabase
+          .from('financial_quiz_answers')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        const { data: expensesData } = await supabase
+          .from('financial_expenses')
+          .select('*')
+          .eq('user_id', user.id);
+
+        if (quizData && expensesData) {
+          const quizAnswers = {
+            fixedExpenses: parseFloat(quizData.fixed_expenses.toString()),
+            variableExpenses: parseFloat(quizData.variable_expenses.toString()),
+            investments: parseFloat(quizData.investments.toString())
+          };
+
+          const fixed = expensesData
+            .filter(exp => exp.category === 'fixed')
+            .reduce((sum, exp) => sum + parseFloat(exp.amount.toString()), 0);
+          const variable = expensesData
+            .filter(exp => exp.category === 'variable')
+            .reduce((sum, exp) => sum + parseFloat(exp.amount.toString()), 0);
+          const investment = expensesData
+            .filter(exp => exp.category === 'investment')
+            .reduce((sum, exp) => sum + parseFloat(exp.amount.toString()), 0);
+
+          const goals: Goal[] = [
+            {
+              id: '1',
+              title: 'Reduzir gastos fixos',
+              description: 'Economize 10% nos gastos fixos este mês',
+              category: 'fixed',
+              target: quizAnswers.fixedExpenses * 0.9,
+              progress: fixed,
+              isCompleted: fixed <= quizAnswers.fixedExpenses * 0.9
+            },
+            {
+              id: '2',
+              title: 'Controlar gastos variáveis',
+              description: `Mantenha gastos variáveis abaixo de R$ ${quizAnswers.variableExpenses.toFixed(2)}`,
+              category: 'variable',
+              target: quizAnswers.variableExpenses,
+              progress: variable,
+              isCompleted: variable <= quizAnswers.variableExpenses
+            },
+            {
+              id: '3',
+              title: 'Aumentar investimentos',
+              description: `Invista pelo menos R$ ${quizAnswers.investments.toFixed(2)} este mês`,
+              category: 'investment',
+              target: quizAnswers.investments,
+              progress: investment,
+              isCompleted: investment >= quizAnswers.investments
+            }
+          ];
+
+          setFinancialGoals(goals);
+        }
+      } catch (error) {
+        console.error('Error loading financial goals:', error);
       }
     };
 
     loadFinancialGoals();
 
-    // Update when localStorage changes
-    const interval = setInterval(loadFinancialGoals, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    // Subscribe to realtime updates
+    const channel = supabase
+      .channel('financial_updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'financial_expenses'
+        },
+        () => {
+          loadFinancialGoals();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'financial_quiz_answers'
+        },
+        () => {
+          loadFinancialGoals();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   // Generate AI tips when goals are loaded or dialog opens
   const generateAiTips = async () => {

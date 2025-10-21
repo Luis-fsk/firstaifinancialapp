@@ -11,6 +11,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ArrowLeft, PlusCircle, DollarSign, TrendingUp, Target, Award, Pencil, Trash2 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { expenseSchema, quizAnswersSchema } from "@/lib/financeValidation";
+import { z } from "zod";
 
 interface QuizAnswers {
   fixedExpenses: number;
@@ -39,6 +43,7 @@ interface Goal {
 
 const Finances = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [showQuiz, setShowQuiz] = useState(true);
   const [quizAnswers, setQuizAnswers] = useState<QuizAnswers>({
     fixedExpenses: 0,
@@ -54,6 +59,7 @@ const Finances = () => {
   });
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Calcular metas baseadas nas despesas reais
   const calculateGoals = (): Goal[] => {
@@ -94,60 +100,141 @@ const Finances = () => {
 
   const monthlyGoals = calculateGoals();
 
-  // Load data from localStorage
+  // Load data from database
   useEffect(() => {
-    const savedQuizAnswers = localStorage.getItem('financeQuizAnswers');
-    const savedExpenses = localStorage.getItem('financeExpenses');
+    const loadFinancialData = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        // Load quiz answers
+        const { data: quizData } = await supabase
+          .from('financial_quiz_answers')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (quizData) {
+          setQuizAnswers({
+            fixedExpenses: parseFloat(quizData.fixed_expenses.toString()),
+            variableExpenses: parseFloat(quizData.variable_expenses.toString()),
+            investments: parseFloat(quizData.investments.toString())
+          });
+          setShowQuiz(false);
+        }
+        
+        // Load expenses
+        const { data: expensesData } = await supabase
+          .from('financial_expenses')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('expense_date', { ascending: false });
+        
+        if (expensesData) {
+          setExpenses(expensesData.map(e => ({
+            id: e.id,
+            amount: parseFloat(e.amount.toString()),
+            category: e.category as 'fixed' | 'variable' | 'investment',
+            description: e.description || '',
+            location: e.location || undefined,
+            date: new Date(e.expense_date)
+          })));
+        }
+      } catch (error) {
+        console.error('Error loading financial data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    if (savedQuizAnswers) {
-      setQuizAnswers(JSON.parse(savedQuizAnswers));
-      setShowQuiz(false);
-    }
-    
-    if (savedExpenses) {
-      setExpenses(JSON.parse(savedExpenses).map((exp: any) => ({
-        ...exp,
-        date: new Date(exp.date)
-      })));
-    }
-  }, []);
+    loadFinancialData();
+  }, [user]);
 
-  const handleQuizSubmit = () => {
-    if (quizAnswers.fixedExpenses === 0 || quizAnswers.variableExpenses === 0) {
-      toast.error("Por favor, preencha todos os campos do quiz");
+  const handleQuizSubmit = async () => {
+    if (!user) {
+      toast.error("Você precisa estar logado");
       return;
     }
-    
-    localStorage.setItem('financeQuizAnswers', JSON.stringify(quizAnswers));
-    setShowQuiz(false);
-    toast.success("Quiz concluído! Bem-vindo às suas finanças pessoais.");
+
+    try {
+      const validated = quizAnswersSchema.parse(quizAnswers);
+      
+      const { error } = await supabase
+        .from('financial_quiz_answers')
+        .upsert({
+          user_id: user.id,
+          fixed_expenses: validated.fixedExpenses,
+          variable_expenses: validated.variableExpenses,
+          investments: validated.investments
+        });
+      
+      if (error) throw error;
+      
+      setShowQuiz(false);
+      toast.success("Quiz concluído! Bem-vindo às suas finanças pessoais.");
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast.error(error.errors[0].message);
+      } else {
+        console.error('Error saving quiz:', error);
+        toast.error("Erro ao salvar quiz");
+      }
+    }
   };
 
-  const handleAddExpense = () => {
-    if (!newExpense.amount || !newExpense.category || !newExpense.description) {
-      toast.error("Por favor, preencha todos os campos obrigatórios");
+  const handleAddExpense = async () => {
+    if (!user) {
+      toast.error("Você precisa estar logado");
       return;
     }
 
-    const expense: Expense = {
-      id: Date.now().toString(),
-      amount: parseFloat(newExpense.amount),
-      category: newExpense.category as 'fixed' | 'variable' | 'investment',
-      description: newExpense.description,
-      location: newExpense.location,
-      date: new Date()
-    };
-
-    const updatedExpenses = [...expenses, expense];
-    setExpenses(updatedExpenses);
-    localStorage.setItem('financeExpenses', JSON.stringify(updatedExpenses));
-    
-    // Salvar dados financeiros para o Dashboard
-    const goals = calculateGoalsForExpenses(updatedExpenses);
-    localStorage.setItem('financeGoals', JSON.stringify(goals));
-    
-    setNewExpense({ amount: '', category: '', description: '', location: '' });
-    toast.success("Gasto adicionado com sucesso!");
+    try {
+      const validated = expenseSchema.parse({
+        amount: parseFloat(newExpense.amount),
+        category: newExpense.category,
+        description: newExpense.description,
+        location: newExpense.location
+      });
+      
+      const { data, error } = await supabase
+        .from('financial_expenses')
+        .insert({
+          user_id: user.id,
+          amount: validated.amount,
+          category: validated.category,
+          description: validated.description,
+          location: validated.location || null
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      if (data) {
+        const newExp: Expense = {
+          id: data.id,
+          amount: parseFloat(data.amount.toString()),
+          category: data.category as 'fixed' | 'variable' | 'investment',
+          description: data.description || '',
+          location: data.location || undefined,
+          date: new Date(data.expense_date)
+        };
+        
+        setExpenses([newExp, ...expenses]);
+      }
+      
+      setNewExpense({ amount: '', category: '', description: '', location: '' });
+      toast.success("Gasto adicionado com sucesso!");
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast.error(error.errors[0].message);
+      } else {
+        console.error('Error adding expense:', error);
+        toast.error("Erro ao adicionar gasto");
+      }
+    }
   };
 
   const handleEditExpense = (expense: Expense) => {
@@ -155,33 +242,65 @@ const Finances = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdateExpense = () => {
-    if (!editingExpense) return;
+  const handleUpdateExpense = async () => {
+    if (!editingExpense || !user) return;
 
-    const updatedExpenses = expenses.map(exp => 
-      exp.id === editingExpense.id ? editingExpense : exp
-    );
-    
-    setExpenses(updatedExpenses);
-    localStorage.setItem('financeExpenses', JSON.stringify(updatedExpenses));
-    
-    const goals = calculateGoalsForExpenses(updatedExpenses);
-    localStorage.setItem('financeGoals', JSON.stringify(goals));
-    
-    setIsEditDialogOpen(false);
-    setEditingExpense(null);
-    toast.success("Gasto atualizado com sucesso!");
+    try {
+      const validated = expenseSchema.parse({
+        amount: editingExpense.amount,
+        category: editingExpense.category,
+        description: editingExpense.description,
+        location: editingExpense.location
+      });
+      
+      const { error } = await supabase
+        .from('financial_expenses')
+        .update({
+          amount: validated.amount,
+          category: validated.category,
+          description: validated.description,
+          location: validated.location || null
+        })
+        .eq('id', editingExpense.id)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      
+      setExpenses(expenses.map(exp => 
+        exp.id === editingExpense.id ? editingExpense : exp
+      ));
+      
+      setIsEditDialogOpen(false);
+      setEditingExpense(null);
+      toast.success("Gasto atualizado com sucesso!");
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast.error(error.errors[0].message);
+      } else {
+        console.error('Error updating expense:', error);
+        toast.error("Erro ao atualizar gasto");
+      }
+    }
   };
 
-  const handleDeleteExpense = (expenseId: string) => {
-    const updatedExpenses = expenses.filter(exp => exp.id !== expenseId);
-    setExpenses(updatedExpenses);
-    localStorage.setItem('financeExpenses', JSON.stringify(updatedExpenses));
-    
-    const goals = calculateGoalsForExpenses(updatedExpenses);
-    localStorage.setItem('financeGoals', JSON.stringify(goals));
-    
-    toast.success("Gasto removido com sucesso!");
+  const handleDeleteExpense = async (expenseId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('financial_expenses')
+        .delete()
+        .eq('id', expenseId)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      
+      setExpenses(expenses.filter(exp => exp.id !== expenseId));
+      toast.success("Gasto removido com sucesso!");
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      toast.error("Erro ao remover gasto");
+    }
   };
 
   const calculateGoalsForExpenses = (expensesList: Expense[]): Goal[] => {
