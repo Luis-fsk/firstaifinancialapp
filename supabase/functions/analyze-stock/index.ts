@@ -1,9 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const requestSchema = z.object({
+  symbol: z.string()
+    .trim()
+    .min(1, 'Símbolo da ação é obrigatório')
+    .max(20, 'Símbolo muito longo')
+    .regex(/^[A-Z0-9.]+$/i, 'Símbolo inválido (use apenas letras, números e ponto)')
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,14 +20,8 @@ serve(async (req) => {
   }
 
   try {
-    const { symbol } = await req.json();
-    
-    if (!symbol) {
-      return new Response(
-        JSON.stringify({ error: 'Símbolo da ação é obrigatório' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
+    const body = await req.json();
+    const { symbol } = requestSchema.parse(body);
 
     console.log('Analyzing stock:', symbol);
 

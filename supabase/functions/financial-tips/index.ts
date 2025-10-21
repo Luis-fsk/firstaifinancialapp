@@ -1,9 +1,23 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const goalSchema = z.object({
+  category: z.enum(['fixed', 'variable', 'investment']),
+  progress: z.number().nonnegative().max(999999999.99),
+  target: z.number().positive().max(999999999.99),
+  isCompleted: z.boolean().optional()
+});
+
+const requestSchema = z.object({
+  goals: z.array(goalSchema)
+    .min(1, 'Dados financeiros são obrigatórios')
+    .max(50, 'Muitos objetivos (máximo 50)')
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,14 +25,8 @@ serve(async (req) => {
   }
 
   try {
-    const { goals } = await req.json();
-    
-    if (!goals || goals.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'Dados financeiros são obrigatórios' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
+    const body = await req.json();
+    const { goals } = requestSchema.parse(body);
 
     console.log('Generating financial tips for goals:', goals);
 

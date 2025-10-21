@@ -1,10 +1,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const requestSchema = z.object({
+  message: z.string().trim().min(1, 'Mensagem não pode estar vazia').max(5000, 'Mensagem muito longa (máximo 5000 caracteres)'),
+  conversationHistory: z.array(z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string().max(10000)
+  })).max(50, 'Histórico muito longo (máximo 50 mensagens)').optional().default([])
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,7 +21,8 @@ serve(async (req) => {
   }
 
   try {
-    const { message, conversationHistory = [] } = await req.json();
+    const body = await req.json();
+    const { message, conversationHistory } = requestSchema.parse(body);
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
     if (!OPENAI_API_KEY) {

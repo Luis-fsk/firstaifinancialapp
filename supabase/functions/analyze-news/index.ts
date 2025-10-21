@@ -1,10 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const requestSchema = z.object({
+  newsId: z.string().uuid('ID de notícia inválido'),
+  title: z.string().trim().min(1, 'Título não pode estar vazio').max(500, 'Título muito longo (máximo 500 caracteres)'),
+  summary: z.string().trim().min(1, 'Resumo não pode estar vazio').max(2000, 'Resumo muito longo (máximo 2000 caracteres)'),
+  category: z.string().trim().min(1, 'Categoria não pode estar vazia').max(100, 'Categoria muito longa')
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -15,7 +23,7 @@ serve(async (req) => {
     const requestBody = await req.json();
     console.log('Request received:', requestBody);
     
-    const { newsId, title, summary, category } = requestBody;
+    const { newsId, title, summary, category } = requestSchema.parse(requestBody);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
