@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Target, TrendingUp, TrendingDown, Award } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Goal {
   id: string;
@@ -16,37 +18,54 @@ interface Goal {
 export const FinancialGoalsSummary = () => {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
-    const loadGoals = () => {
-      const savedGoals = localStorage.getItem('financeGoals');
-      
-      if (savedGoals) {
-        const parsedGoals = JSON.parse(savedGoals);
-        setGoals(parsedGoals);
+    const loadGoals = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
       }
+
+      const { data, error } = await supabase
+        .from('financial_goals')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading goals:', error);
+        setLoading(false);
+        return;
+      }
+
+      const mappedGoals = data.map(g => ({
+        id: g.id,
+        title: g.title,
+        description: g.description || '',
+        category: 'fixed' as const,
+        target: parseFloat(g.target_amount.toString()),
+        progress: parseFloat(g.current_amount.toString()),
+        isCompleted: parseFloat(g.current_amount.toString()) >= parseFloat(g.target_amount.toString())
+      }));
+
+      setGoals(mappedGoals);
       setLoading(false);
     };
 
     loadGoals();
 
-    // Listener para mudanças no localStorage (sincronização entre abas/componentes)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'financeGoals') {
+    // Realtime subscription for goal updates
+    const channel = supabase
+      .channel('financial_goals_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'financial_goals' }, () => {
         loadGoals();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-
-    // Polling para atualizações em tempo real na mesma aba
-    const interval = setInterval(loadGoals, 2000);
+      })
+      .subscribe();
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
+      supabase.removeChannel(channel);
     };
-  }, []);
+  }, [user]);
 
   if (loading || goals.length === 0) {
     return null;

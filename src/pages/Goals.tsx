@@ -15,6 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import growingLogo from "@/assets/growing-logo-new.png";
 import DOMPurify from 'dompurify';
+import { goalSchema } from "@/lib/goalValidation";
+import { z } from "zod";
 
 interface Goal {
   id: string;
@@ -96,80 +98,201 @@ const Goals = () => {
     deadline: ''
   });
 
-  // Load goals from localStorage
+  // Load goals from database
   useEffect(() => {
-    const savedGoals = localStorage.getItem('financeGoals');
-    if (savedGoals) {
-      const parsed = JSON.parse(savedGoals);
-      setGoals(parsed.map((g: any) => ({ ...g, createdAt: new Date(g.createdAt) })));
-    }
-  }, []);
+    const loadGoals = async () => {
+      if (!user) return;
 
-  // Save goals to localStorage
-  const saveGoals = (updatedGoals: Goal[]) => {
-    localStorage.setItem('financeGoals', JSON.stringify(updatedGoals));
-    setGoals(updatedGoals);
-  };
+      const { data, error } = await supabase
+        .from('financial_goals')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-  const handleAddGoal = () => {
-    if (!newGoal.title || !newGoal.targetAmount) {
-      toast.error("Preencha pelo menos o título e o valor alvo");
+      if (error) {
+        console.error('Error loading goals:', error);
+        toast.error('Erro ao carregar metas');
+        return;
+      }
+
+      setGoals(data.map(g => ({
+        id: g.id,
+        title: g.title,
+        description: g.description || '',
+        category: g.category as Goal['category'],
+        targetAmount: parseFloat(g.target_amount.toString()),
+        currentAmount: parseFloat(g.current_amount.toString()),
+        deadline: g.deadline || undefined,
+        createdAt: new Date(g.created_at)
+      })));
+    };
+
+    loadGoals();
+  }, [user]);
+
+  const handleAddGoal = async () => {
+    if (!user) {
+      toast.error("Você precisa estar logado");
       return;
     }
 
-    const goal: Goal = {
-      id: Date.now().toString(),
-      title: newGoal.title,
-      description: newGoal.description,
-      category: newGoal.category,
-      targetAmount: parseFloat(newGoal.targetAmount),
-      currentAmount: parseFloat(newGoal.currentAmount),
-      deadline: newGoal.deadline || undefined,
-      createdAt: new Date()
-    };
+    try {
+      const validated = goalSchema.parse({
+        title: newGoal.title,
+        description: newGoal.description,
+        category: newGoal.category,
+        targetAmount: parseFloat(newGoal.targetAmount),
+        currentAmount: parseFloat(newGoal.currentAmount),
+        deadline: newGoal.deadline
+      });
 
-    saveGoals([...goals, goal]);
-    setIsAddDialogOpen(false);
-    setNewGoal({
-      title: '',
-      description: '',
-      category: 'savings',
-      targetAmount: '',
-      currentAmount: '0',
-      deadline: ''
-    });
-    toast.success("Meta criada com sucesso!");
+      const { data, error } = await supabase
+        .from('financial_goals')
+        .insert({
+          user_id: user.id,
+          title: validated.title,
+          description: validated.description || null,
+          category: validated.category,
+          target_amount: validated.targetAmount,
+          current_amount: validated.currentAmount,
+          deadline: validated.deadline || null
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating goal:', error);
+        toast.error('Erro ao criar meta');
+        return;
+      }
+
+      setGoals([...goals, {
+        id: data.id,
+        title: data.title,
+        description: data.description || '',
+        category: data.category as Goal['category'],
+        targetAmount: parseFloat(data.target_amount.toString()),
+        currentAmount: parseFloat(data.current_amount.toString()),
+        deadline: data.deadline || undefined,
+        createdAt: new Date(data.created_at)
+      }]);
+
+      setIsAddDialogOpen(false);
+      setNewGoal({
+        title: '',
+        description: '',
+        category: 'savings',
+        targetAmount: '',
+        currentAmount: '0',
+        deadline: ''
+      });
+      toast.success("Meta criada com sucesso!");
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast.error(error.errors[0].message);
+      } else {
+        toast.error("Erro ao criar meta");
+      }
+    }
   };
 
-  const handleUpdateProgress = (goalId: string, newAmount: string) => {
+  const handleUpdateProgress = async (goalId: string, newAmount: string) => {
     const amount = parseFloat(newAmount);
-    if (isNaN(amount) || amount < 0) return;
+    
+    if (isNaN(amount) || amount < 0) {
+      toast.error("Valor inválido");
+      return;
+    }
 
-    const updatedGoals = goals.map(goal => 
-      goal.id === goalId 
-        ? { ...goal, currentAmount: amount }
-        : goal
+    const goal = goals.find(g => g.id === goalId);
+    if (!goal) return;
+
+    if (amount > goal.targetAmount * 1.5) {
+      toast.error('O valor não pode exceder 150% da meta');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('financial_goals')
+      .update({ current_amount: amount })
+      .eq('id', goalId);
+
+    if (error) {
+      console.error('Error updating goal:', error);
+      toast.error('Erro ao atualizar progresso');
+      return;
+    }
+
+    const updatedGoals = goals.map(g => 
+      g.id === goalId 
+        ? { ...g, currentAmount: amount }
+        : g
     );
-    saveGoals(updatedGoals);
+    setGoals(updatedGoals);
     toast.success("Progresso atualizado!");
   };
 
-  const handleDeleteGoal = (goalId: string) => {
+  const handleDeleteGoal = async (goalId: string) => {
+    const { error } = await supabase
+      .from('financial_goals')
+      .delete()
+      .eq('id', goalId);
+
+    if (error) {
+      console.error('Error deleting goal:', error);
+      toast.error('Erro ao excluir meta');
+      return;
+    }
+
     const updatedGoals = goals.filter(goal => goal.id !== goalId);
-    saveGoals(updatedGoals);
+    setGoals(updatedGoals);
     toast.success("Meta excluída");
   };
 
-  const handleEditGoal = () => {
+  const handleEditGoal = async () => {
     if (!editingGoal) return;
 
-    const updatedGoals = goals.map(goal =>
-      goal.id === editingGoal.id ? editingGoal : goal
-    );
-    saveGoals(updatedGoals);
-    setIsEditDialogOpen(false);
-    setEditingGoal(null);
-    toast.success("Meta atualizada!");
+    try {
+      const validated = goalSchema.parse({
+        title: editingGoal.title,
+        description: editingGoal.description,
+        category: editingGoal.category,
+        targetAmount: editingGoal.targetAmount,
+        currentAmount: editingGoal.currentAmount,
+        deadline: editingGoal.deadline
+      });
+
+      const { error } = await supabase
+        .from('financial_goals')
+        .update({
+          title: validated.title,
+          description: validated.description || null,
+          category: validated.category,
+          target_amount: validated.targetAmount,
+          current_amount: validated.currentAmount,
+          deadline: validated.deadline || null
+        })
+        .eq('id', editingGoal.id);
+
+      if (error) {
+        console.error('Error updating goal:', error);
+        toast.error('Erro ao atualizar meta');
+        return;
+      }
+
+      const updatedGoals = goals.map(goal =>
+        goal.id === editingGoal.id ? editingGoal : goal
+      );
+      setGoals(updatedGoals);
+      setIsEditDialogOpen(false);
+      setEditingGoal(null);
+      toast.success("Meta atualizada!");
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast.error(error.errors[0].message);
+      } else {
+        toast.error("Erro ao atualizar meta");
+      }
+    }
   };
 
   const getAITips = async (goal: Goal) => {

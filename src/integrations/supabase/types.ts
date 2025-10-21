@@ -62,6 +62,105 @@ export type Database = {
         }
         Relationships: []
       }
+      financial_expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          description: string | null
+          expense_date: string
+          id: string
+          location: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string
+          description?: string | null
+          expense_date?: string
+          id?: string
+          location?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          description?: string | null
+          expense_date?: string
+          id?: string
+          location?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      financial_goals: {
+        Row: {
+          category: string
+          created_at: string
+          current_amount: number
+          deadline: string | null
+          description: string | null
+          id: string
+          target_amount: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          current_amount?: number
+          deadline?: string | null
+          description?: string | null
+          id?: string
+          target_amount: number
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          current_amount?: number
+          deadline?: string | null
+          description?: string | null
+          id?: string
+          target_amount?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      financial_quiz_answers: {
+        Row: {
+          created_at: string
+          fixed_expenses: number
+          investments: number
+          updated_at: string
+          user_id: string
+          variable_expenses: number
+        }
+        Insert: {
+          created_at?: string
+          fixed_expenses: number
+          investments: number
+          updated_at?: string
+          user_id: string
+          variable_expenses: number
+        }
+        Update: {
+          created_at?: string
+          fixed_expenses?: number
+          investments?: number
+          updated_at?: string
+          user_id?: string
+          variable_expenses?: number
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string

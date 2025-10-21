@@ -144,8 +144,42 @@ export function UserMenu() {
     const file = event.target.files?.[0];
     if (!file || !user) return;
 
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+    const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      toast({
+        title: "Arquivo muito grande",
+        description: "O tamanho máximo permitido é 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate MIME type
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast({
+        title: "Tipo de arquivo não permitido",
+        description: "Por favor, envie apenas imagens (JPG, PNG, WebP)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file extension
+    const fileExt = file.name.split('.').pop()?.toLowerCase();
+    if (!fileExt || !ALLOWED_EXTENSIONS.includes(fileExt)) {
+      toast({
+        title: "Extensão não permitida",
+        description: "Por favor, use arquivos .jpg, .png ou .webp",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/avatar.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
