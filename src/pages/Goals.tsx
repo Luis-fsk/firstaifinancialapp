@@ -98,7 +98,7 @@ const Goals = () => {
 
   // Load goals from localStorage
   useEffect(() => {
-    const savedGoals = localStorage.getItem('userGoals');
+    const savedGoals = localStorage.getItem('financeGoals');
     if (savedGoals) {
       const parsed = JSON.parse(savedGoals);
       setGoals(parsed.map((g: any) => ({ ...g, createdAt: new Date(g.createdAt) })));
@@ -107,7 +107,7 @@ const Goals = () => {
 
   // Save goals to localStorage
   const saveGoals = (updatedGoals: Goal[]) => {
-    localStorage.setItem('userGoals', JSON.stringify(updatedGoals));
+    localStorage.setItem('financeGoals', JSON.stringify(updatedGoals));
     setGoals(updatedGoals);
   };
 

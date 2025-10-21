@@ -20,15 +20,10 @@ export const FinancialGoalsSummary = () => {
   useEffect(() => {
     const loadGoals = () => {
       const savedGoals = localStorage.getItem('financeGoals');
-      const savedExpenses = localStorage.getItem('financeExpenses');
       
       if (savedGoals) {
         const parsedGoals = JSON.parse(savedGoals);
         setGoals(parsedGoals);
-      } else if (savedExpenses) {
-        // Fallback: recalcular se só temos as despesas
-        const expenses = JSON.parse(savedExpenses);
-        console.log('Recalculando metas a partir de', expenses.length, 'despesas');
       }
       setLoading(false);
     };
@@ -37,7 +32,7 @@ export const FinancialGoalsSummary = () => {
 
     // Listener para mudanças no localStorage (sincronização entre abas/componentes)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'financeGoals' || e.key === 'financeExpenses') {
+      if (e.key === 'financeGoals') {
         loadGoals();
       }
     };
@@ -45,7 +40,7 @@ export const FinancialGoalsSummary = () => {
     window.addEventListener('storage', handleStorageChange);
 
     // Polling para atualizações em tempo real na mesma aba
-    const interval = setInterval(loadGoals, 500);
+    const interval = setInterval(loadGoals, 2000);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);

@@ -2,8 +2,9 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bot, Newspaper, Users, TrendingUp, LogOut, DollarSign, PieChart, LineChart, Target } from "lucide-react";
+import { Bot, Newspaper, Users, TrendingUp, LogOut, DollarSign, PieChart, LineChart, Target, Clock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import { UserMenu } from "@/components/UserMenu";
 import { FinancialGoalsSummary } from "@/components/FinancialGoalsSummary";
 import growingLogo from "@/assets/growing-logo-new.png";
@@ -11,6 +12,7 @@ import growingLogo from "@/assets/growing-logo-new.png";
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const { isTrialActive, daysLeftInTrial, isPremium } = useSubscription();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -118,6 +120,12 @@ const Dashboard = () => {
                   <Users className="h-4 w-4 sm:h-5 sm:w-5" />
                   <span>Comunidade ativa</span>
                 </div>
+                {isTrialActive && !isPremium && (
+                  <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full">
+                    <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <span className="font-semibold">{daysLeftInTrial} dias de trial restantes</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -159,26 +167,6 @@ const Dashboard = () => {
 
         {/* Financial Goals Summary */}
         <FinancialGoalsSummary />
-
-        {/* Quick Stats */}
-        <div className="mt-8 sm:mt-12 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
-          <div className="bg-white rounded-xl p-4 sm:p-6 border border-border shadow-sm">
-            <div className="text-xl sm:text-2xl font-bold text-primary mb-2">100+</div>
-            <div className="text-xs sm:text-sm text-muted-foreground">Análises de IA</div>
-          </div>
-          <div className="bg-white rounded-xl p-4 sm:p-6 border border-border shadow-sm">
-            <div className="text-xl sm:text-2xl font-bold text-secondary mb-2">50+</div>
-            <div className="text-xs sm:text-sm text-muted-foreground">Notícias diárias</div>
-          </div>
-          <div className="bg-white rounded-xl p-4 sm:p-6 border border-border shadow-sm">
-            <div className="text-xl sm:text-2xl font-bold text-warm mb-2">1.2k</div>
-            <div className="text-xs sm:text-sm text-muted-foreground">Membros ativos</div>
-          </div>
-          <div className="bg-white rounded-xl p-4 sm:p-6 border border-border shadow-sm">
-            <div className="text-xl sm:text-2xl font-bold text-primary mb-2">98%</div>
-            <div className="text-xs sm:text-sm text-muted-foreground">Satisfação</div>
-          </div>
-        </div>
       </main>
     </div>
   );
