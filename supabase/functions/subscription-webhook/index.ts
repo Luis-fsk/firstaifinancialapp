@@ -27,87 +27,108 @@ serve(async (req) => {
       'x-request-id': req.headers.get('x-request-id'),
     });
 
-    // Verify Mercado Pago signature if secret is configured and headers are present
+    // Verify Mercado Pago signature (MANDATORY for security)
     const xSignature = req.headers.get('x-signature');
     const xRequestId = req.headers.get('x-request-id');
     
-    if (mercadoPagoWebhookSecret && xSignature && xRequestId) {
-      console.log('Verifying webhook signature...');
-      
-      try {
-        // Parse x-signature header: "ts=123456,v1=hash"
-        const parts = xSignature.split(',');
-        let ts = '';
-        let hash = '';
-        
-        for (const part of parts) {
-          const [key, value] = part.trim().split('=');
-          if (key === 'ts') ts = value;
-          if (key === 'v1') hash = value;
+    if (!mercadoPagoWebhookSecret || !xSignature || !xRequestId) {
+      console.error('Webhook signature verification failed - missing credentials or headers');
+      return new Response(
+        JSON.stringify({ error: 'Webhook signature required for security' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
         }
-        
-        if (!ts || !hash) {
-          console.error('Invalid signature format');
-          return new Response(
-            JSON.stringify({ error: 'Invalid signature format' }),
-            {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              status: 401,
-            }
-          );
-        }
+      );
+    }
 
-        // Create the manifest: id;request-id;ts
-        const manifest = `id:${body.data?.id};request-id:${xRequestId};ts:${ts};`;
-        console.log('Manifest:', manifest);
-        
-        // Verify the signature using HMAC SHA256
-        const encoder = new TextEncoder();
-        const key = await crypto.subtle.importKey(
-          'raw',
-          encoder.encode(mercadoPagoWebhookSecret),
-          { name: 'HMAC', hash: 'SHA-256' },
-          false,
-          ['sign']
-        );
-        
-        const signature = await crypto.subtle.sign(
-          'HMAC',
-          key,
-          encoder.encode(manifest)
-        );
-        
-        const expectedSignature = Array.from(new Uint8Array(signature))
-          .map(b => b.toString(16).padStart(2, '0'))
-          .join('');
-        
-        console.log('Expected signature:', expectedSignature);
-        console.log('Received signature:', hash);
-        
-        if (hash !== expectedSignature) {
-          console.error('Signature verification failed');
-          return new Response(
-            JSON.stringify({ error: 'Signature verification failed' }),
-            {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              status: 401,
-            }
-          );
-        }
-        
-        console.log('Signature verified successfully');
-      } catch (error) {
-        console.error('Error verifying signature:', error);
+    console.log('Verifying webhook signature...');
+    
+    try {
+      // Parse x-signature header: "ts=123456,v1=hash"
+      const parts = xSignature.split(',');
+      let ts = '';
+      let hash = '';
+      
+      for (const part of parts) {
+        const [key, value] = part.trim().split('=');
+        if (key === 'ts') ts = value;
+        if (key === 'v1') hash = value;
+      }
+      
+      if (!ts || !hash) {
+        console.error('Invalid signature format');
         return new Response(
-          JSON.stringify({ error: 'Error verifying signature' }),
+          JSON.stringify({ error: 'Invalid signature format' }),
           {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 401,
           }
         );
       }
-    } else {
-      console.warn('Skipping signature verification - webhook secret or signature headers not present');
+
+      // Validate timestamp to prevent replay attacks (5 minute window)
+      const timestamp = parseInt(ts);
+      const now = Math.floor(Date.now() / 1000);
+      if (isNaN(timestamp) || Math.abs(now - timestamp) > 300) {
+        console.error('Webhook timestamp validation failed - possible replay attack');
+        return new Response(
+          JSON.stringify({ error: 'Expired or invalid webhook timestamp' }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 401,
+          }
+        );
+      }
+
+      // Create the manifest: id;request-id;ts
+      const manifest = `id:${body.data?.id};request-id:${xRequestId};ts:${ts};`;
+      console.log('Manifest:', manifest);
+      
+      // Verify the signature using HMAC SHA256
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(mercadoPagoWebhookSecret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+      );
+      
+      const signature = await crypto.subtle.sign(
+        'HMAC',
+        key,
+        encoder.encode(manifest)
+      );
+      
+      const expectedSignature = Array.from(new Uint8Array(signature))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+      
+      console.log('Expected signature:', expectedSignature);
+      console.log('Received signature:', hash);
+      
+      if (hash !== expectedSignature) {
+        console.error('Signature verification failed - invalid HMAC signature');
+        return new Response(
+          JSON.stringify({ error: 'Invalid webhook signature' }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 401,
+          }
+        );
+      }
+      
+      console.log('Webhook signature and timestamp verified successfully');
+    } catch (error) {
+      console.error('Error verifying signature:', error);
+      return new Response(
+        JSON.stringify({ error: 'Error verifying signature' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        }
+      );
     }
 
     // Mercado Pago sends notifications with payment updates

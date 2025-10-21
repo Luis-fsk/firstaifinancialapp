@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,6 +27,28 @@ serve(async (req) => {
   }
 
   try {
+    // Check if user has moderator or admin role
+    const authHeader = req.headers.get('Authorization')?.replace('Bearer ', '');
+    if (authHeader) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey, {
+        global: { headers: { Authorization: `Bearer ${authHeader}` } }
+      });
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: isAdmin } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' });
+        const { data: isModerator } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'moderator' });
+        
+        if (!isAdmin && !isModerator) {
+          console.log('User is not admin/moderator - proceeding with AI moderation');
+        } else {
+          console.log('Admin/moderator bypassing content moderation');
+        }
+      }
+    }
+
     const { content } = await req.json();
     
     // Validate content first

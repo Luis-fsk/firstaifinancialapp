@@ -40,6 +40,8 @@ serve(async (req) => {
       });
     }
 
+    // Note: This function allows users to delete their own account
+    // If admin functionality is needed, check for admin role here
     console.log('Deleting user:', user.id);
 
     // Delete user using admin client
