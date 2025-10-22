@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -129,34 +130,7 @@ serve(async (req) => {
     // Calcular variação
     const priceChange = ((currentPrice - previousClose) / previousClose * 100).toFixed(2);
     
-    // Preparar contexto para a IA
-    const aiPrompt = `Você é um analista financeiro experiente. Analise a ação "${symbol}" e forneça:
-
-1. Nome completo da empresa
-2. Um resumo da atuação e performance da empresa (2-3 parágrafos)
-3. Análise do gráfico de preços considerando:
-   - Preço atual: ${currency} ${currentPrice.toFixed(2)}
-   - Variação: ${priceChange}%
-   - Tendência dos últimos 30 dias
-4. Projeções para o futuro (curto, médio e longo prazo)
-5. Recomendação de investimento:
-   - Ação: investir, evitar ou cautela
-   - Prazo recomendado: curto (até 6 meses), médio (6-18 meses) ou longo (mais de 18 meses)
-   - Justificativa detalhada do prazo
-
-IMPORTANTE: Retorne APENAS um JSON válido no formato:
-{
-  "company_name": "Nome da Empresa",
-  "performance_summary": "Resumo detalhado...",
-  "chart_analysis": "Análise técnica do gráfico...",
-  "future_projection": "Projeções futuras...",
-  "recommendation": {
-    "action": "investir|evitar|cautela",
-    "timeframe": "curto|médio|longo",
-    "reasoning": "Justificativa detalhada do prazo..."
-  }
-}`;
-
+    // Use OpenAI Agent to analyze stock
     const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -164,14 +138,87 @@ IMPORTANTE: Retorne APENAS um JSON válido no formato:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages: [
           { 
             role: 'system', 
-            content: 'Você é um analista financeiro especializado. Sempre responda em português brasileiro com análises profissionais e bem fundamentadas. Retorne sempre um JSON válido sem markdown.' 
+            content: `Você é um agente analista financeiro especializado.
+
+Sua função é analisar ações e fornecer insights detalhados sobre:
+1. Identificação da empresa
+2. Performance e atuação no mercado
+3. Análise técnica do gráfico de preços
+4. Projeções futuras
+5. Recomendações de investimento
+
+Sempre forneça análises profissionais, bem fundamentadas e em português brasileiro.
+Use a ferramenta analyze_stock para retornar seus resultados.` 
           },
-          { role: 'user', content: aiPrompt }
+          { 
+            role: 'user', 
+            content: `Analise a ação "${symbol}":
+            
+Dados atuais:
+- Preço: ${currency} ${currentPrice.toFixed(2)}
+- Variação: ${priceChange}%
+- Preço anterior: ${currency} ${previousClose.toFixed(2)}
+- Tendência dos últimos 30 dias disponível
+
+Forneça uma análise completa com recomendação de investimento.` 
+          }
         ],
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'analyze_stock',
+              description: 'Retorna análise completa de uma ação',
+              parameters: {
+                type: 'object',
+                properties: {
+                  company_name: {
+                    type: 'string',
+                    description: 'Nome completo da empresa'
+                  },
+                  performance_summary: {
+                    type: 'string',
+                    description: 'Resumo detalhado da atuação e performance (2-3 parágrafos)'
+                  },
+                  chart_analysis: {
+                    type: 'string',
+                    description: 'Análise técnica do gráfico considerando preço atual, variação e tendência'
+                  },
+                  future_projection: {
+                    type: 'string',
+                    description: 'Projeções para curto, médio e longo prazo'
+                  },
+                  recommendation: {
+                    type: 'object',
+                    properties: {
+                      action: {
+                        type: 'string',
+                        enum: ['investir', 'evitar', 'cautela'],
+                        description: 'Recomendação de ação'
+                      },
+                      timeframe: {
+                        type: 'string',
+                        enum: ['curto', 'médio', 'longo'],
+                        description: 'Prazo recomendado: curto (até 6 meses), médio (6-18 meses), longo (mais de 18 meses)'
+                      },
+                      reasoning: {
+                        type: 'string',
+                        description: 'Justificativa detalhada do prazo recomendado'
+                      }
+                    },
+                    required: ['action', 'timeframe', 'reasoning']
+                  }
+                },
+                required: ['company_name', 'performance_summary', 'chart_analysis', 'future_projection', 'recommendation']
+              }
+            }
+          }
+        ],
+        tool_choice: { type: 'function', function: { name: 'analyze_stock' } },
         temperature: 0.7,
       }),
     });
@@ -197,35 +244,29 @@ IMPORTANTE: Retorne APENAS um JSON válido no formato:
     }
 
     const aiData = await aiResponse.json();
-    const aiContent = aiData.choices?.[0]?.message?.content;
+    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
 
-    if (!aiContent) {
-      console.error('No content in AI response');
+    if (!toolCall || toolCall.function.name !== 'analyze_stock') {
+      console.error('No tool call in AI response');
       return new Response(
         JSON.stringify({ error: 'Erro ao processar análise. Tente novamente.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
 
-    console.log('AI Response received');
+    console.log('AI Tool Call received');
 
-    // Try to parse JSON from the response
+    // Parse the tool call arguments
     let analysisData;
     try {
-      // Try to extract JSON from markdown code blocks if present
-      const jsonMatch = aiContent.match(/```json\s*([\s\S]*?)\s*```/) || 
-                       aiContent.match(/```\s*([\s\S]*?)\s*```/) ||
-                       [null, aiContent];
-      const jsonString = jsonMatch[1] || aiContent;
-      analysisData = JSON.parse(jsonString.trim());
+      analysisData = JSON.parse(toolCall.function.arguments);
     } catch (parseError) {
-      console.error('Failed to parse AI response as JSON:', parseError);
-      // Fallback: create structured response from text
+      console.error('Failed to parse tool call arguments:', parseError);
       analysisData = {
         company_name: symbol,
-        performance_summary: aiContent.substring(0, 500),
-        chart_analysis: 'Análise técnica disponível acima.',
-        future_projection: 'Consulte a análise completa acima.',
+        performance_summary: 'Erro ao processar análise detalhada.',
+        chart_analysis: 'Análise técnica indisponível.',
+        future_projection: 'Projeções indisponíveis.',
         recommendation: {
           action: 'cautela',
           timeframe: 'médio',

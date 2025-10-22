@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -77,12 +78,21 @@ serve(async (req) => {
       );
     }
 
-    // Use OpenAI to analyze content
-    const aiPrompt = `Você é um moderador de conteúdo para um aplicativo de finanças e investimentos chamado "Growing S&K".
+    // Use OpenAI Agent to analyze content
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          { 
+            role: 'system', 
+            content: `Você é um agente moderador de conteúdo especializado para "Growing S&K", um aplicativo de finanças e investimentos.
 
-Analise o seguinte conteúdo e determine se ele é adequado para publicação:
-
-"${content}"
+Sua função é analisar conteúdo e determinar se é adequado para publicação.
 
 CRITÉRIOS DE APROVAÇÃO:
 - Conteúdo relacionado a finanças, investimentos, economia, mercado financeiro, educação financeira
@@ -99,27 +109,34 @@ CRITÉRIOS DE REJEIÇÃO:
 - Informações falsas maliciosas sobre mercado
 - Conteúdo completamente fora do tema de finanças
 
-Responda APENAS com um JSON válido no seguinte formato:
-{
-  "approved": true ou false,
-  "reason": "breve explicação do motivo da aprovação ou rejeição"
-}`;
-
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'Você é um moderador de conteúdo especializado em finanças. Sempre responda em português brasileiro com um JSON válido.' 
+Sempre responda em português brasileiro usando a ferramenta moderate_content.` 
           },
-          { role: 'user', content: aiPrompt }
+          { role: 'user', content: `Analise este conteúdo:\n\n"${content}"` }
         ],
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'moderate_content',
+              description: 'Retorna o resultado da moderação de conteúdo',
+              parameters: {
+                type: 'object',
+                properties: {
+                  approved: {
+                    type: 'boolean',
+                    description: 'Se o conteúdo foi aprovado ou não'
+                  },
+                  reason: {
+                    type: 'string',
+                    description: 'Breve explicação do motivo da aprovação ou rejeição'
+                  }
+                },
+                required: ['approved', 'reason']
+              }
+            }
+          }
+        ],
+        tool_choice: { type: 'function', function: { name: 'moderate_content' } },
         temperature: 0.3,
       }),
     });
@@ -148,10 +165,10 @@ Responda APENAS com um JSON válido no seguinte formato:
     }
 
     const aiData = await aiResponse.json();
-    const aiContent = aiData.choices?.[0]?.message?.content;
+    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
 
-    if (!aiContent) {
-      console.error('No content in AI response');
+    if (!toolCall || toolCall.function.name !== 'moderate_content') {
+      console.error('No tool call in AI response');
       return new Response(
         JSON.stringify({ 
           approved: true, 
@@ -161,20 +178,14 @@ Responda APENAS com um JSON válido no seguinte formato:
       );
     }
 
-    console.log('AI Response:', aiContent);
+    console.log('AI Tool Call:', toolCall.function.arguments);
 
-    // Parse the AI response
+    // Parse the tool call arguments
     let moderationResult;
     try {
-      // Try to extract JSON from markdown code blocks if present
-      const jsonMatch = aiContent.match(/```json\s*([\s\S]*?)\s*```/) || 
-                       aiContent.match(/```\s*([\s\S]*?)\s*```/) ||
-                       [null, aiContent];
-      const jsonString = jsonMatch[1] || aiContent;
-      moderationResult = JSON.parse(jsonString.trim());
+      moderationResult = JSON.parse(toolCall.function.arguments);
     } catch (parseError) {
-      console.error('Failed to parse AI response as JSON:', parseError);
-      // Default to approval in case of parsing error to avoid blocking legitimate content
+      console.error('Failed to parse tool call arguments:', parseError);
       moderationResult = {
         approved: true,
         reason: 'Análise automática indisponível - conteúdo aprovado por padrão'
