@@ -65,9 +65,9 @@ serve(async (req) => {
 
     console.log('Moderating content...');
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY not configured');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
+      console.error('OPENAI_API_KEY not configured');
       return new Response(
         JSON.stringify({ 
           approved: true, 
@@ -77,8 +77,8 @@ serve(async (req) => {
       );
     }
 
-    // Use Lovable AI to analyze content
-    const aiPrompt = `Você é um moderador de conteúdo para um aplicativo de finanças e investimentos chamado "Growing S&K". 
+    // Use OpenAI to analyze content
+    const aiPrompt = `Você é um moderador de conteúdo para um aplicativo de finanças e investimentos chamado "Growing S&K".
 
 Analise o seguinte conteúdo e determine se ele é adequado para publicação:
 
@@ -105,14 +105,14 @@ Responda APENAS com um JSON válido no seguinte formato:
   "reason": "breve explicação do motivo da aprovação ou rejeição"
 }`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
         messages: [
           { 
             role: 'system', 
