@@ -40,9 +40,18 @@ export function useSubscription(): SubscriptionStatus {
     const trialStart = profile.trial_start ? new Date(profile.trial_start) : new Date();
     const now = new Date();
     const daysElapsed = Math.floor((now.getTime() - trialStart.getTime()) / (1000 * 60 * 60 * 24));
-    const daysLeftInTrial = Math.max(0, 30 - daysElapsed);
+    const daysLeftInTrial = Math.max(0, Math.floor(30 - daysElapsed));
     const isTrialExpired = daysElapsed >= 30;
-    const isTrialActive = !isTrialExpired;
+    const isTrialActive = !isTrialExpired && daysLeftInTrial > 0;
+
+    console.log('Trial Status:', {
+      trialStart: trialStart.toISOString(),
+      now: now.toISOString(),
+      daysElapsed,
+      daysLeftInTrial,
+      isTrialExpired,
+      isTrialActive
+    });
 
     return {
       isPremium: false,
