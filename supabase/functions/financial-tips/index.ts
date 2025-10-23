@@ -102,7 +102,7 @@ Status: ${progress >= target ? 'Concluída ✓' : 'Em andamento'}`;
     const totalProgress = userGoals.reduce((sum, g) => sum + parseFloat(g.current_amount.toString()), 0);
     const overallPercentage = ((totalProgress / totalTarget) * 100).toFixed(1);
 
-    const aiPrompt = `Você é um consultor financeiro experiente. Analise as metas financeiras do usuário abaixo e forneça 4-5 dicas personalizadas e práticas.
+    const aiPrompt = `Analise as metas financeiras do usuário abaixo e forneça 4-5 dicas personalizadas e práticas.
 
 METAS FINANCEIRAS DO USUÁRIO:
 ${goalsContext}
@@ -119,10 +119,16 @@ Forneça dicas ESPECÍFICAS e ACIONÁVEIS considerando:
 4. Sugestões de economia ou investimento para atingir os objetivos
 5. Ajustes recomendados nos prazos ou valores
 
-Responda APENAS com um array JSON de strings, cada uma contendo uma dica prática. Exemplo:
-["Para sua meta de ${userGoals[0]?.title}: aumente aportes em 15%", "Priorize a meta X que está mais próxima", ...]
+Responda em formato JSON com a seguinte estrutura:
+{
+  "tips": ["dica 1", "dica 2", "dica 3", "dica 4", "dica 5"]
+}
 
-Importante: Retorne APENAS o JSON, sem markdown ou explicações adicionais.`;
+Exemplo de dicas:
+- "Para sua meta de ${userGoals[0]?.title}: aumente aportes em 15%"
+- "Priorize a meta X que está mais próxima de ser concluída"
+
+Importante: Retorne APENAS JSON válido, sem markdown.`;
 
     console.log('Calling OpenAI API...');
     const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -140,6 +146,7 @@ Importante: Retorne APENAS o JSON, sem markdown ou explicações adicionais.`;
           },
           { role: 'user', content: aiPrompt }
         ],
+        response_format: { type: 'json_object' },
         temperature: 0.7,
       }),
     });
@@ -168,10 +175,15 @@ Importante: Retorne APENAS o JSON, sem markdown ou explicações adicionais.`;
     const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
     
     try {
-      tips = JSON.parse(cleanContent);
+      const parsed = JSON.parse(cleanContent);
       
-      if (!Array.isArray(tips)) {
-        throw new Error('Response is not an array');
+      // Check if response has tips property
+      if (parsed.tips && Array.isArray(parsed.tips)) {
+        tips = parsed.tips;
+      } else if (Array.isArray(parsed)) {
+        tips = parsed;
+      } else {
+        throw new Error('Response format invalid');
       }
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', parseError);
