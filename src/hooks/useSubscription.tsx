@@ -36,22 +36,17 @@ export function useSubscription(): SubscriptionStatus {
       };
     }
 
-    // Check trial status
+    // Check trial status - reset time to midnight for consistent daily counting
     const trialStart = profile.trial_start ? new Date(profile.trial_start) : new Date();
+    trialStart.setHours(0, 0, 0, 0);
+    
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
     const daysElapsed = Math.floor((now.getTime() - trialStart.getTime()) / (1000 * 60 * 60 * 24));
-    const daysLeftInTrial = Math.max(0, Math.floor(30 - daysElapsed));
+    const daysLeftInTrial = Math.max(0, 30 - daysElapsed);
     const isTrialExpired = daysElapsed >= 30;
     const isTrialActive = !isTrialExpired && daysLeftInTrial > 0;
-
-    console.log('Trial Status:', {
-      trialStart: trialStart.toISOString(),
-      now: now.toISOString(),
-      daysElapsed,
-      daysLeftInTrial,
-      isTrialExpired,
-      isTrialActive
-    });
 
     return {
       isPremium: false,

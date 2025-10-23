@@ -1,24 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-const goalSchema = z.object({
-  category: z.enum(['fixed', 'variable', 'investment']),
-  progress: z.number().nonnegative().max(999999999.99),
-  target: z.number().positive().max(999999999.99),
-  isCompleted: z.boolean().optional()
-});
-
-const requestSchema = z.object({
-  goals: z.array(goalSchema)
-    .min(1, 'Dados financeiros são obrigatórios')
-    .max(50, 'Muitos objetivos (máximo 50)')
-});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -60,57 +46,81 @@ serve(async (req) => {
       );
     }
 
-    const body = await req.json();
-    const { goals } = requestSchema.parse(body);
+    // Buscar metas financeiras do usuário
+    const { data: userGoals, error: goalsError } = await supabase
+      .from('financial_goals')
+      .select('*')
+      .eq('user_id', user.id);
 
-    console.log('Generating financial tips for goals:', goals);
+    if (goalsError) {
+      console.error('Error fetching goals:', goalsError);
+      return new Response(
+        JSON.stringify({ error: 'Erro ao buscar metas financeiras' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!userGoals || userGoals.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          tips: [
+            '💡 Crie suas primeiras metas financeiras para receber dicas personalizadas',
+            '📊 Defina objetivos claros de economia e investimento',
+            '💰 Comece acompanhando seus gastos mensais',
+            '📈 Estabeleça um plano de reserva de emergência'
+          ]
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Generating financial tips for goals:', userGoals);
 
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY not configured');
     }
 
-    // Preparar contexto financeiro
-    const fixedGoal = goals.find((g: any) => g.category === 'fixed');
-    const variableGoal = goals.find((g: any) => g.category === 'variable');
-    const investmentGoal = goals.find((g: any) => g.category === 'investment');
+    // Preparar contexto detalhado das metas
+    const goalsContext = userGoals.map(goal => {
+      const progress = parseFloat(goal.current_amount.toString());
+      const target = parseFloat(goal.target_amount.toString());
+      const percentage = ((progress / target) * 100).toFixed(1);
+      const remaining = target - progress;
+      
+      return `
+Meta: ${goal.title}
+Categoria: ${goal.category}
+Descrição: ${goal.description || 'Sem descrição'}
+Progresso: R$ ${progress.toFixed(2)} de R$ ${target.toFixed(2)} (${percentage}%)
+Faltam: R$ ${remaining.toFixed(2)}
+Prazo: ${goal.deadline ? new Date(goal.deadline).toLocaleDateString('pt-BR') : 'Sem prazo definido'}
+Status: ${progress >= target ? 'Concluída ✓' : 'Em andamento'}`;
+    }).join('\n\n---\n');
 
-    const fixedStatus = fixedGoal 
-      ? `Gastos fixos: R$ ${fixedGoal.progress.toFixed(2)} de R$ ${fixedGoal.target.toFixed(2)} (meta: ${(fixedGoal.progress / fixedGoal.target * 100).toFixed(1)}%)`
-      : 'Sem dados de gastos fixos';
-    
-    const variableStatus = variableGoal
-      ? `Gastos variáveis: R$ ${variableGoal.progress.toFixed(2)} de R$ ${variableGoal.target.toFixed(2)} (meta: ${(variableGoal.progress / variableGoal.target * 100).toFixed(1)}%)`
-      : 'Sem dados de gastos variáveis';
-    
-    const investmentStatus = investmentGoal
-      ? `Investimentos: R$ ${investmentGoal.progress.toFixed(2)} de R$ ${investmentGoal.target.toFixed(2)} (meta: ${(investmentGoal.progress / investmentGoal.target * 100).toFixed(1)}%)`
-      : 'Sem dados de investimentos';
+    const totalTarget = userGoals.reduce((sum, g) => sum + parseFloat(g.target_amount.toString()), 0);
+    const totalProgress = userGoals.reduce((sum, g) => sum + parseFloat(g.current_amount.toString()), 0);
+    const overallPercentage = ((totalProgress / totalTarget) * 100).toFixed(1);
 
-    const totalSpent = (fixedGoal?.progress || 0) + (variableGoal?.progress || 0);
-    const totalInvested = investmentGoal?.progress || 0;
+    const aiPrompt = `Você é um consultor financeiro experiente. Analise as metas financeiras do usuário abaixo e forneça 4-5 dicas personalizadas e práticas.
 
-    const aiPrompt = `Você é um consultor financeiro experiente. Analise a situação financeira abaixo e forneça 4-5 dicas personalizadas e práticas para melhorar a performance financeira do usuário.
+METAS FINANCEIRAS DO USUÁRIO:
+${goalsContext}
 
-Situação atual:
-- ${fixedStatus}
-- ${variableStatus}
-- ${investmentStatus}
-- Total gasto: R$ ${totalSpent.toFixed(2)}
-- Total investido: R$ ${totalInvested.toFixed(2)}
+RESUMO GERAL:
+- Total de metas: ${userGoals.length}
+- Progresso geral: R$ ${totalProgress.toFixed(2)} de R$ ${totalTarget.toFixed(2)} (${overallPercentage}%)
+- Faltam: R$ ${(totalTarget - totalProgress).toFixed(2)}
 
-Meta concluída em gastos fixos: ${fixedGoal?.isCompleted ? 'Sim' : 'Não'}
-Meta concluída em gastos variáveis: ${variableGoal?.isCompleted ? 'Sim' : 'Não'}
-Meta concluída em investimentos: ${investmentGoal?.isCompleted ? 'Sim' : 'Não'}
+Forneça dicas ESPECÍFICAS e ACIONÁVEIS considerando:
+1. O progresso atual de cada meta
+2. Estratégias para acelerar o alcance das metas
+3. Como priorizar entre as diferentes metas
+4. Sugestões de economia ou investimento para atingir os objetivos
+5. Ajustes recomendados nos prazos ou valores
 
-Forneça dicas específicas, práticas e acionáveis considerando:
-1. Áreas onde o usuário está gastando acima do planejado
-2. Oportunidades de economia
-3. Sugestões de investimento baseadas no perfil atual
-4. Estratégias para otimizar o orçamento
-
-Responda APENAS com um array JSON de strings, cada uma contendo uma dica. Exemplo:
-["Reduza gastos fixos renegociando contratos", "Aumente investimentos em 10%", "...]
+Responda APENAS com um array JSON de strings, cada uma contendo uma dica prática. Exemplo:
+["Para sua meta de ${userGoals[0]?.title}: aumente aportes em 15%", "Priorize a meta X que está mais próxima", ...]
 
 Importante: Retorne APENAS o JSON, sem markdown ou explicações adicionais.`;
 

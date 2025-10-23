@@ -163,7 +163,7 @@ export function UserMenu() {
     setLoadingTips(true);
     try {
       const { data, error } = await supabase.functions.invoke('financial-tips', {
-        body: { goals: financialGoals }
+        body: {} // A função agora busca as metas diretamente do banco
       });
 
       if (error) {

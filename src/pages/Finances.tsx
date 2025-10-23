@@ -71,11 +71,18 @@ const Finances = () => {
     }
   }, [isTrialExpired, isPremium]);
 
-  // Calcular metas baseadas nas despesas reais
+  // Calcular metas baseadas nas despesas do mês atual
   const calculateGoals = (): Goal[] => {
-    const fixed = expenses.filter(exp => exp.category === 'fixed').reduce((sum, exp) => sum + exp.amount, 0);
-    const variable = expenses.filter(exp => exp.category === 'variable').reduce((sum, exp) => sum + exp.amount, 0);
-    const investment = expenses.filter(exp => exp.category === 'investment').reduce((sum, exp) => sum + exp.amount, 0);
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const currentMonthExpenses = expenses.filter(exp => {
+      const expDate = new Date(exp.date);
+      return expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear;
+    });
+    
+    const fixed = currentMonthExpenses.filter(exp => exp.category === 'fixed').reduce((sum, exp) => sum + exp.amount, 0);
+    const variable = currentMonthExpenses.filter(exp => exp.category === 'variable').reduce((sum, exp) => sum + exp.amount, 0);
+    const investment = currentMonthExpenses.filter(exp => exp.category === 'investment').reduce((sum, exp) => sum + exp.amount, 0);
 
     return [
       {
@@ -314,9 +321,16 @@ const Finances = () => {
   };
 
   const calculateGoalsForExpenses = (expensesList: Expense[]): Goal[] => {
-    const fixed = expensesList.filter(exp => exp.category === 'fixed').reduce((sum, exp) => sum + exp.amount, 0);
-    const variable = expensesList.filter(exp => exp.category === 'variable').reduce((sum, exp) => sum + exp.amount, 0);
-    const investment = expensesList.filter(exp => exp.category === 'investment').reduce((sum, exp) => sum + exp.amount, 0);
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const currentMonthExpenses = expensesList.filter(exp => {
+      const expDate = new Date(exp.date);
+      return expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear;
+    });
+    
+    const fixed = currentMonthExpenses.filter(exp => exp.category === 'fixed').reduce((sum, exp) => sum + exp.amount, 0);
+    const variable = currentMonthExpenses.filter(exp => exp.category === 'variable').reduce((sum, exp) => sum + exp.amount, 0);
+    const investment = currentMonthExpenses.filter(exp => exp.category === 'investment').reduce((sum, exp) => sum + exp.amount, 0);
 
     return [
       {
@@ -350,9 +364,16 @@ const Finances = () => {
   };
 
   const getExpensesByCategory = () => {
-    const fixed = expenses.filter(exp => exp.category === 'fixed').reduce((sum, exp) => sum + exp.amount, 0);
-    const variable = expenses.filter(exp => exp.category === 'variable').reduce((sum, exp) => sum + exp.amount, 0);
-    const investment = expenses.filter(exp => exp.category === 'investment').reduce((sum, exp) => sum + exp.amount, 0);
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const currentMonthExpenses = expenses.filter(exp => {
+      const expDate = new Date(exp.date);
+      return expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear;
+    });
+    
+    const fixed = currentMonthExpenses.filter(exp => exp.category === 'fixed').reduce((sum, exp) => sum + exp.amount, 0);
+    const variable = currentMonthExpenses.filter(exp => exp.category === 'variable').reduce((sum, exp) => sum + exp.amount, 0);
+    const investment = currentMonthExpenses.filter(exp => exp.category === 'investment').reduce((sum, exp) => sum + exp.amount, 0);
 
     return [
       { name: 'Fixos', value: fixed, color: '#3b82f6' },
