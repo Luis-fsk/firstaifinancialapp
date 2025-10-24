@@ -45,11 +45,39 @@ serve(async (req) => {
       );
     }
 
-    // Check premium status using database function
-    const { data: isPremium, error: premiumError } = await supabase
-      .rpc('is_premium_user', { _user_id: user.id });
+    // Check premium status and trial
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('plan_type, trial_start')
+      .eq('user_id', user.id)
+      .single();
 
-    if (premiumError || !isPremium) {
+    if (profileError || !profile) {
+      return new Response(
+        JSON.stringify({ error: 'Perfil não encontrado' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const isPremium = profile.plan_type === 'premium';
+    const trialStart = profile.trial_start ? new Date(profile.trial_start) : new Date();
+    const now = new Date();
+    const daysElapsed = Math.floor((now.getTime() - trialStart.getTime()) / (1000 * 60 * 60 * 24));
+    const isTrialExpired = daysElapsed >= 30;
+
+    if (!isPremium && isTrialExpired) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Seu período de teste gratuito expirou. Assine o plano Premium para continuar usando este recurso.',
+          trial_expired: true
+        }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!isPremium && !isTrialExpired) {
+      // Still in trial, allow access
+    } else if (!isPremium) {
       return new Response(
         JSON.stringify({ error: 'Assinatura premium necessária para usar este recurso' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

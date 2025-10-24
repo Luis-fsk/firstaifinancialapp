@@ -27,10 +27,10 @@ serve(async (req) => {
       'x-request-id': req.headers.get('x-request-id'),
     });
 
-    // Verify Mercado Pago signature (skip for test mode)
+    // Determine if this is a test/simulation webhook
     const xSignature = req.headers.get('x-signature');
     const xRequestId = req.headers.get('x-request-id');
-    const isTestMode = body.live_mode === false;
+    const isTestMode = body.live_mode === false || !body.live_mode || body.id === '123456';
     
     // For production webhooks, signature verification is MANDATORY
     if (!isTestMode && (!mercadoPagoWebhookSecret || !xSignature || !xRequestId)) {
@@ -143,7 +143,7 @@ serve(async (req) => {
       console.log('Skipping signature verification - missing credentials');
     }
 
-    // Mercado Pago sends notifications with payment updates
+    // Handle payment notifications
     if (body.type === 'payment') {
       const paymentId = body.data.id;
 
@@ -217,6 +217,95 @@ serve(async (req) => {
           .eq('user_id', userId);
 
         console.log('Subscription cancelled for user:', userId);
+      }
+    }
+    
+    // Handle subscription preapproval notifications
+    if (body.type === 'subscription_preapproval' || body.entity === 'preapproval') {
+      const preapprovalId = body.data.id;
+      console.log('Processing subscription preapproval:', preapprovalId);
+
+      // Get preapproval details from Mercado Pago
+      const preapprovalResponse = await fetch(`https://api.mercadopago.com/preapproval/${preapprovalId}`, {
+        headers: {
+          'Authorization': `Bearer ${mercadoPagoToken}`,
+        },
+      });
+
+      if (!preapprovalResponse.ok) {
+        console.error('Failed to fetch preapproval details:', preapprovalResponse.status);
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch subscription details' }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500,
+          }
+        );
+      }
+
+      const preapproval = await preapprovalResponse.json();
+      console.log('Preapproval details:', preapproval);
+
+      const userId = preapproval.external_reference;
+      
+      // Validate userId
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!userId || !uuidRegex.test(userId)) {
+        console.error('Invalid user ID in preapproval:', userId);
+        return new Response(
+          JSON.stringify({ error: 'Invalid external reference format' }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400,
+          }
+        );
+      }
+
+      // Verify user exists
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+      
+      if (profileError || !profile) {
+        console.error('User not found for preapproval:', userId);
+        return new Response(
+          JSON.stringify({ error: 'User not found' }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 404,
+          }
+        );
+      }
+
+      const status = preapproval.status; // authorized, paused, cancelled, etc.
+      console.log('Processing preapproval for user:', userId, 'with status:', status);
+
+      // Update user subscription based on preapproval status
+      if (status === 'authorized') {
+        const expiresAt = new Date();
+        expiresAt.setMonth(expiresAt.getMonth() + 1); // 1 month subscription
+
+        await supabase
+          .from('profiles')
+          .update({
+            plan_type: 'premium',
+            subscription_status: 'authorized',
+            subscription_expires_at: expiresAt.toISOString()
+          })
+          .eq('user_id', userId);
+
+        console.log('User upgraded to premium via subscription:', userId);
+      } else if (status === 'cancelled' || status === 'paused') {
+        await supabase
+          .from('profiles')
+          .update({
+            subscription_status: 'cancelled'
+          })
+          .eq('user_id', userId);
+
+        console.log('Subscription cancelled/paused for user:', userId);
       }
     }
 

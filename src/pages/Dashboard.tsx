@@ -20,6 +20,12 @@ const Dashboard = () => {
     }
   }, [user, loading, navigate]);
 
+  useEffect(() => {
+    if (!loading && user && !isPremium && !isTrialActive && daysLeftInTrial === 0) {
+      navigate("/premium");
+    }
+  }, [user, loading, isPremium, isTrialActive, daysLeftInTrial, navigate]);
+
   const features = [
     {
       title: "Assistente IA",
