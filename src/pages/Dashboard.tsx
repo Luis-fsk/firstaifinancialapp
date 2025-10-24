@@ -126,10 +126,14 @@ const Dashboard = () => {
                   <Users className="h-4 w-4 sm:h-5 sm:w-5" />
                   <span>Comunidade ativa</span>
                 </div>
-                {isTrialActive && !isPremium && daysLeftInTrial > 0 && (
+                {!isPremium && (
                   <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full">
                     <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
-                    <span className="font-semibold">{String(daysLeftInTrial)} dias de trial restantes</span>
+                    <span className="font-semibold">
+                      {isTrialActive && daysLeftInTrial > 0 
+                        ? `${String(daysLeftInTrial)} dias de trial restantes`
+                        : 'Trial gratuito encerrado'}
+                    </span>
                   </div>
                 )}
               </div>
