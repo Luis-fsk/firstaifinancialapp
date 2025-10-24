@@ -225,7 +225,19 @@ serve(async (req) => {
       const preapprovalId = body.data.id;
       console.log('Processing subscription preapproval:', preapprovalId);
 
-      // Get preapproval details from Mercado Pago
+      // For test webhooks with test ID, acknowledge without processing
+      if (isTestMode) {
+        console.log('Test webhook acknowledged - no real processing for test ID:', preapprovalId);
+        return new Response(
+          JSON.stringify({ success: true, message: 'Test webhook received' }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          }
+        );
+      }
+
+      // Get preapproval details from Mercado Pago for production webhooks
       const preapprovalResponse = await fetch(`https://api.mercadopago.com/preapproval/${preapprovalId}`, {
         headers: {
           'Authorization': `Bearer ${mercadoPagoToken}`,
