@@ -425,6 +425,42 @@ export type Database = {
           },
         ]
       }
+      subscription_audit_log: {
+        Row: {
+          created_at: string
+          event_type: string
+          external_reference: string | null
+          id: string
+          metadata: Json | null
+          payment_id: string | null
+          source: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          external_reference?: string | null
+          id?: string
+          metadata?: Json | null
+          payment_id?: string | null
+          source: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          external_reference?: string | null
+          id?: string
+          metadata?: Json | null
+          payment_id?: string | null
+          source?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -455,12 +491,9 @@ export type Database = {
         Args: { _user_id1: string; _user_id2: string }
         Returns: boolean
       }
-      delete_user: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      delete_user: { Args: never; Returns: undefined }
       get_public_posts: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           author_initials: string
           author_name: string
@@ -474,7 +507,7 @@ export type Database = {
         }[]
       }
       get_public_replies: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           author_initials: string
           author_name: string
@@ -508,18 +541,9 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_premium_user: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
-      user_liked_post: {
-        Args: { post_id_param: string }
-        Returns: boolean
-      }
-      user_liked_reply: {
-        Args: { reply_id_param: string }
-        Returns: boolean
-      }
+      is_premium_user: { Args: { _user_id: string }; Returns: boolean }
+      user_liked_post: { Args: { post_id_param: string }; Returns: boolean }
+      user_liked_reply: { Args: { reply_id_param: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

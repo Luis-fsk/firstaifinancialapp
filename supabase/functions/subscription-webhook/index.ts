@@ -19,6 +19,7 @@ serve(async (req) => {
 
     const mercadoPagoToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
     const mercadoPagoWebhookSecret = Deno.env.get('MERCADO_PAGO_WEBHOOK_SECRET');
+    const isDevEnvironment = Deno.env.get('ENVIRONMENT') === 'development';
     
     const body = await req.json();
     console.log('Webhook received:', JSON.stringify(body, null, 2));
@@ -27,16 +28,28 @@ serve(async (req) => {
       'x-request-id': req.headers.get('x-request-id'),
     });
 
-    // Determine if this is a test/simulation webhook
+    // Only allow test mode in development environment
+    // NEVER trust client-supplied values for security decisions
     const xSignature = req.headers.get('x-signature');
     const xRequestId = req.headers.get('x-request-id');
-    const isTestMode = body.live_mode === false || !body.live_mode || body.id === '123456';
+    const isTestMode = isDevEnvironment && body.id === '123456';
     
     // For production webhooks, signature verification is MANDATORY
-    if (!isTestMode && (!mercadoPagoWebhookSecret || !xSignature || !xRequestId)) {
-      console.error('Production webhook missing signature credentials');
+    if (!isTestMode && !mercadoPagoWebhookSecret) {
+      console.error('CRITICAL: MERCADO_PAGO_WEBHOOK_SECRET not configured');
       return new Response(
-        JSON.stringify({ error: 'Webhook signature required for production' }),
+        JSON.stringify({ error: 'Webhook secret not configured' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      );
+    }
+    
+    if (!isTestMode && (!xSignature || !xRequestId)) {
+      console.error('Production webhook missing signature headers');
+      return new Response(
+        JSON.stringify({ error: 'Webhook signature required' }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 401,
@@ -46,11 +59,11 @@ serve(async (req) => {
     
     // Log test mode
     if (isTestMode) {
-      console.log('Test mode webhook - skipping signature verification');
+      console.log('Development test mode - skipping signature verification');
     }
 
-    // Skip signature verification for test webhooks
-    if (!isTestMode && mercadoPagoWebhookSecret && xSignature && xRequestId) {
+    // Verify signature for all production webhooks
+    if (!isTestMode && xSignature && xRequestId) {
       console.log('Verifying webhook signature...');
       
       try {
@@ -139,8 +152,6 @@ serve(async (req) => {
           }
         );
       }
-    } else if (!isTestMode) {
-      console.log('Skipping signature verification - missing credentials');
     }
 
     // Handle payment notifications
@@ -198,6 +209,17 @@ serve(async (req) => {
         const expiresAt = new Date();
         expiresAt.setMonth(expiresAt.getMonth() + 1); // 1 month subscription
 
+        // Audit log
+        await supabase.from('subscription_audit_log').insert({
+          user_id: userId,
+          event_type: 'payment_approved',
+          payment_id: paymentId,
+          external_reference: userId,
+          status: status,
+          metadata: { payment_details: payment },
+          source: 'mercado_pago_webhook'
+        });
+
         await supabase
           .from('profiles')
           .update({
@@ -209,6 +231,17 @@ serve(async (req) => {
 
         console.log('User upgraded to premium:', userId);
       } else if (status === 'rejected' || status === 'cancelled') {
+        // Audit log
+        await supabase.from('subscription_audit_log').insert({
+          user_id: userId,
+          event_type: 'payment_cancelled',
+          payment_id: paymentId,
+          external_reference: userId,
+          status: status,
+          metadata: { payment_details: payment },
+          source: 'mercado_pago_webhook'
+        });
+
         await supabase
           .from('profiles')
           .update({
@@ -299,6 +332,17 @@ serve(async (req) => {
         const expiresAt = new Date();
         expiresAt.setMonth(expiresAt.getMonth() + 1); // 1 month subscription
 
+        // Audit log
+        await supabase.from('subscription_audit_log').insert({
+          user_id: userId,
+          event_type: 'subscription_authorized',
+          payment_id: preapprovalId,
+          external_reference: userId,
+          status: status,
+          metadata: { preapproval_details: preapproval },
+          source: 'mercado_pago_webhook'
+        });
+
         await supabase
           .from('profiles')
           .update({
@@ -310,6 +354,17 @@ serve(async (req) => {
 
         console.log('User upgraded to premium via subscription:', userId);
       } else if (status === 'cancelled' || status === 'paused') {
+        // Audit log
+        await supabase.from('subscription_audit_log').insert({
+          user_id: userId,
+          event_type: 'subscription_cancelled',
+          payment_id: preapprovalId,
+          external_reference: userId,
+          status: status,
+          metadata: { preapproval_details: preapproval },
+          source: 'mercado_pago_webhook'
+        });
+
         await supabase
           .from('profiles')
           .update({
