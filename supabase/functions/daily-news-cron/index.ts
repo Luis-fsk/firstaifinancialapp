@@ -12,6 +12,26 @@ serve(async (req) => {
   }
 
   try {
+    // Verify cron secret token
+    const cronSecret = req.headers.get("x-cron-secret");
+    const expectedSecret = Deno.env.get("CRON_SECRET_TOKEN");
+    
+    if (!expectedSecret) {
+      console.error("CRON_SECRET_TOKEN not configured");
+      return new Response(
+        JSON.stringify({ error: "Server configuration error" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (cronSecret !== expectedSecret) {
+      console.error("Unauthorized cron job attempt");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     console.log("Daily news cron job triggered");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
