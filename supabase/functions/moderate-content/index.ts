@@ -52,6 +52,8 @@ serve(async (req) => {
 
     const { content } = await req.json();
     
+    console.log('Moderating content with length:', content?.length || 0);
+    
     // Validate content first
     const contentValidation = validateContent(content);
     if (!contentValidation.valid) {
@@ -63,8 +65,6 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
-
-    console.log('Moderating content...');
 
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
@@ -178,7 +178,7 @@ Sempre responda em português brasileiro usando a ferramenta moderate_content.`
       );
     }
 
-    console.log('AI Tool Call:', toolCall.function.arguments);
+    console.log('Content moderation result received from AI');
 
     // Parse the tool call arguments
     let moderationResult;

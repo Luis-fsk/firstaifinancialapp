@@ -22,10 +22,10 @@ serve(async (req) => {
     const isDevEnvironment = Deno.env.get('ENVIRONMENT') === 'development';
     
     const body = await req.json();
-    console.log('Webhook received:', JSON.stringify(body, null, 2));
+    console.log('Webhook received:', body.type, body.action, body.id);
     console.log('Headers:', {
-      'x-signature': req.headers.get('x-signature'),
-      'x-request-id': req.headers.get('x-request-id'),
+      hasSignature: !!req.headers.get('x-signature'),
+      requestId: req.headers.get('x-request-id'),
     });
 
     // Only allow test mode in development environment

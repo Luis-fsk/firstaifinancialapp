@@ -70,11 +70,28 @@ serve(async (req) => {
   }
 
   try {
+    // Verify cron secret token for direct calls (allow internal calls from other functions)
+    const authHeader = req.headers.get("authorization");
+    const cronSecret = req.headers.get("x-cron-secret");
+    const expectedSecret = Deno.env.get("CRON_SECRET_TOKEN");
+    
+    // Allow if called internally with service role key or with valid cron secret
+    const hasServiceRole = authHeader?.includes(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "");
+    const hasValidCronSecret = cronSecret === expectedSecret && expectedSecret;
+    
+    if (!hasServiceRole && !hasValidCronSecret) {
+      console.error("Unauthorized fetch-news attempt");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('Fetching news from RSS feeds and APIs...');
+    console.log('Fetching news from RSS feeds...');
     
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!lovableApiKey) {

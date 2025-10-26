@@ -21,7 +21,7 @@ serve(async (req) => {
 
   try {
     const requestBody = await req.json();
-    console.log('Request received:', requestBody);
+    console.log('Analyzing news article:', { newsId: requestBody.newsId, category: requestBody.category });
     
     const { newsId, title, summary, category } = requestSchema.parse(requestBody);
     
@@ -62,7 +62,7 @@ Seja objetivo e use linguagem acessível.`
       temperature: 0.7,
     };
 
-    console.log('AI Request payload:', JSON.stringify(aiRequestBody, null, 2));
+    console.log('Sending request to AI for news analysis');
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
@@ -97,9 +97,7 @@ Seja objetivo e use linguagem acessível.`
       }
 
       aiResponse = await response.json();
-      console.log('AI Response received successfully');
-      console.log('Response keys:', Object.keys(aiResponse || {}));
-      console.log('Full AI Response:', JSON.stringify(aiResponse, null, 2));
+      console.log('AI analysis completed successfully');
     } catch (fetchError) {
       clearTimeout(timeoutId);
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
