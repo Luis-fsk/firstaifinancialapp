@@ -85,3 +85,6 @@ verify_jwt = true
 
 [functions.check-subscriptions]
 verify_jwt = false
+
+[functions.analyze-investment]
+verify_jwt = true
