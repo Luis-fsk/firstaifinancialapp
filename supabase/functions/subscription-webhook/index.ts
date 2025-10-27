@@ -22,11 +22,7 @@ serve(async (req) => {
     const isDevEnvironment = Deno.env.get('ENVIRONMENT') === 'development';
     
     const body = await req.json();
-    console.log('Webhook received:', body.type, body.action, body.id);
-    console.log('Headers:', {
-      hasSignature: !!req.headers.get('x-signature'),
-      requestId: req.headers.get('x-request-id'),
-    });
+    console.log('Webhook received - type:', body.type, 'action:', body.action);
 
     // Only allow test mode in development environment
     // NEVER trust client-supplied values for security decisions
@@ -166,7 +162,7 @@ serve(async (req) => {
       });
 
       const payment = await paymentResponse.json();
-      console.log('Payment details:', payment);
+      console.log('Payment status retrieved:', payment.status);
 
       const userId = payment.external_reference;
       
@@ -202,7 +198,7 @@ serve(async (req) => {
       }
 
       const status = payment.status; // approved, pending, rejected, etc.
-      console.log('Processing payment for user:', userId, 'with status:', status);
+      console.log('Processing payment - status:', status);
 
       // Update user subscription status
       if (status === 'approved') {
@@ -229,7 +225,7 @@ serve(async (req) => {
           })
           .eq('user_id', userId);
 
-        console.log('User upgraded to premium:', userId);
+        console.log('User upgraded to premium successfully');
       } else if (status === 'rejected' || status === 'cancelled') {
         // Audit log
         await supabase.from('subscription_audit_log').insert({
@@ -249,7 +245,7 @@ serve(async (req) => {
           })
           .eq('user_id', userId);
 
-        console.log('Subscription cancelled for user:', userId);
+        console.log('Subscription cancelled successfully');
       }
     }
     
@@ -325,7 +321,7 @@ serve(async (req) => {
       }
 
       const status = preapproval.status; // authorized, paused, cancelled, etc.
-      console.log('Processing preapproval for user:', userId, 'with status:', status);
+      console.log('Processing preapproval - status:', status);
 
       // Update user subscription based on preapproval status
       if (status === 'authorized') {
@@ -352,7 +348,7 @@ serve(async (req) => {
           })
           .eq('user_id', userId);
 
-        console.log('User upgraded to premium via subscription:', userId);
+        console.log('User upgraded to premium via subscription successfully');
       } else if (status === 'cancelled' || status === 'paused') {
         // Audit log
         await supabase.from('subscription_audit_log').insert({
@@ -372,7 +368,7 @@ serve(async (req) => {
           })
           .eq('user_id', userId);
 
-        console.log('Subscription cancelled/paused for user:', userId);
+        console.log('Subscription cancelled/paused successfully');
       }
     }
 

@@ -64,7 +64,7 @@ serve(async (req) => {
           })
           .eq('user_id', user.user_id);
 
-        console.log('Downgraded user:', user.user_id);
+        console.log('User downgraded from premium');
       }
     }
 

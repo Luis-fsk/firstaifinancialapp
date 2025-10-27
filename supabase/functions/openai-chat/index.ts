@@ -92,7 +92,7 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log('OpenAI response:', data);
+    console.log('OpenAI response received successfully');
 
     const assistantMessage = data.choices[0].message.content;
 

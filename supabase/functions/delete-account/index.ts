@@ -31,7 +31,7 @@ serve(async (req) => {
       throw new Error('Invalid user token');
     }
 
-    console.log('Deleting account for user:', user.id);
+    console.log('Deleting user account');
 
     // Delete user using admin API
     const { error: deleteError } = await supabaseClient.auth.admin.deleteUser(user.id);

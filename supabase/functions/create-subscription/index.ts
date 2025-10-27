@@ -41,7 +41,7 @@ serve(async (req) => {
       validatedAmount = BASE_PRICE * 0.9; // 10% discount = R$ 11.25
     }
 
-    console.log('Creating subscription for user:', userId, 'Amount:', validatedAmount);
+    console.log('Creating subscription - Amount:', validatedAmount);
 
     // Create subscription preference in Mercado Pago
     const preferenceResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {

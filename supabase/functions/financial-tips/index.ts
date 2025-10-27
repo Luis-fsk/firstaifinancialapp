@@ -102,7 +102,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('Generating financial tips for goals:', userGoals);
+    console.log('Generating financial tips - goals count:', userGoals?.length || 0);
 
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
@@ -194,7 +194,7 @@ Importante: Retorne APENAS JSON válido, sem markdown.`;
     }
 
     const aiData = await aiResponse.json();
-    console.log('AI response received:', aiData);
+    console.log('AI response received successfully');
 
     let tips: string[];
     const content = aiData.choices[0].message.content;

@@ -42,7 +42,7 @@ serve(async (req) => {
 
     // Note: This function allows users to delete their own account
     // If admin functionality is needed, check for admin role here
-    console.log('Deleting user:', user.id);
+    console.log('Deleting user account');
 
     // Delete user using admin client
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
