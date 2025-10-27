@@ -352,6 +352,36 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          created_at: string
+          endpoint: string
+          id: string
+          request_count: number
+          updated_at: string
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint: string
+          id?: string
+          request_count?: number
+          updated_at?: string
+          user_id: string
+          window_start?: string
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          id?: string
+          request_count?: number
+          updated_at?: string
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       replies: {
         Row: {
           author_initials: string
@@ -490,6 +520,15 @@ export type Database = {
       are_users_connected: {
         Args: { _user_id1: string; _user_id2: string }
         Returns: boolean
+      }
+      check_rate_limit: {
+        Args: {
+          _endpoint: string
+          _max_requests?: number
+          _user_id: string
+          _window_minutes?: number
+        }
+        Returns: Json
       }
       delete_user: { Args: never; Returns: undefined }
       get_public_posts: {

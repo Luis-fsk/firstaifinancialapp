@@ -42,6 +42,50 @@ serve(async (req) => {
       );
     }
 
+    // Check rate limit (10 requests per minute for assistant chat)
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+    
+    const { data: rateLimitCheck, error: rateLimitError } = await supabaseAdmin
+      .rpc('check_rate_limit', { 
+        _user_id: user.id, 
+        _endpoint: 'assistant-chat',
+        _max_requests: 10,
+        _window_minutes: 1
+      });
+
+    if (rateLimitError) {
+      console.error('Rate limit check error:', rateLimitError);
+      return new Response(
+        JSON.stringify({ error: 'Erro ao verificar limite de requisições' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!rateLimitCheck.allowed) {
+      const resetAt = new Date(rateLimitCheck.reset_at);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Limite de requisições excedido. Tente novamente em alguns instantes.',
+          rate_limit: {
+            remaining: 0,
+            reset_at: resetAt.toISOString()
+          }
+        }),
+        { 
+          status: 429, 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': resetAt.toISOString()
+          } 
+        }
+      );
+    }
+
     // Check premium status using database function
     const { data: isPremium, error: premiumError } = await supabase
       .rpc('is_premium_user', { _user_id: user.id });
