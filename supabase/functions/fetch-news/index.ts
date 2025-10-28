@@ -91,17 +91,6 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey!);
-    
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!lovableApiKey) {
-      console.error('LOVABLE_API_KEY not configured');
-      return new Response(JSON.stringify({ 
-        error: 'Serviço temporariamente indisponível' 
-      }), {
-        status: 503,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
     // Usar NewsAPI gratuita do The Guardian
     const newsApiUrl = 'https://content.guardianapis.com/search?section=business&show-fields=headline,trailText,shortUrl&order-by=newest&page-size=10&api-key=test';
@@ -145,85 +134,54 @@ serve(async (req) => {
     
     console.log(`Processing ${recentItems.length} recent items...`);
 
-    // Processar com Lovable AI
+    // Processar notícias com categorização simples
     const processedNews: NewsItem[] = [];
+    
+    // Função auxiliar para categorizar baseado em palavras-chave
+    const categorizeNews = (title: string, description: string, source: string): string => {
+      const text = `${title} ${description}`.toLowerCase();
+      
+      if (source === 'CoinDesk' || source === 'CoinTelegraph' || 
+          text.includes('bitcoin') || text.includes('crypto') || 
+          text.includes('ethereum') || text.includes('blockchain')) {
+        return 'Criptomoedas';
+      }
+      if (text.includes('stock') || text.includes('ação') || text.includes('ações') || 
+          text.includes('bolsa') || text.includes('índice')) {
+        return 'Bolsa';
+      }
+      if (text.includes('invest') || text.includes('investimento') || 
+          text.includes('fundo') || text.includes('portfolio')) {
+        return 'Investimentos';
+      }
+      if (text.includes('taxa') || text.includes('juros') || text.includes('bond') || 
+          text.includes('treasury') || text.includes('tesouro')) {
+        return 'Renda Fixa';
+      }
+      if (text.includes('dólar') || text.includes('euro') || text.includes('câmbio') || 
+          text.includes('currency') || text.includes('forex')) {
+        return 'Câmbio';
+      }
+      return 'Economia';
+    };
 
     for (const item of recentItems) {
       try {
-        // Usar Lovable AI para categorizar e resumir
-        const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${lovableApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages: [
-              {
-                role: 'system',
-                content: 'Você é um assistente especializado em notícias financeiras. Categorize e resuma notícias em português brasileiro.'
-              },
-              {
-                role: 'user',
-                content: `Analise esta notícia e retorne APENAS um JSON com esta estrutura exata:
-{
-  "category": "uma das opções: Criptomoedas, Economia, Bolsa, Investimentos, Renda Fixa, Câmbio",
-  "summary": "resumo em português de no máximo 200 caracteres"
-}
-
-Título: ${item.title}
-Descrição: ${item.description}
-
-IMPORTANTE: Retorne APENAS o JSON, sem nenhum texto adicional.`
-              }
-            ],
-            temperature: 0.3,
-          }),
-        });
-
-        if (!aiResponse.ok) {
-          console.error(`AI API error: ${aiResponse.status}`);
-          continue;
-        }
-
-        const aiData = await aiResponse.json();
-        const aiContent = aiData.choices?.[0]?.message?.content;
-        
-        if (!aiContent) {
-          console.error('No AI content received');
-          continue;
-        }
-
-        // Extrair JSON da resposta
-        const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-          console.error('No JSON found in AI response');
-          continue;
-        }
-
-        const analysis = JSON.parse(jsonMatch[0]);
+        const category = categorizeNews(item.title, item.description, item.source);
+        const summary = item.description.length > 200 
+          ? item.description.substring(0, 197) + '...' 
+          : item.description;
 
         processedNews.push({
           title: item.title,
-          summary: analysis.summary || item.description.substring(0, 200),
-          category: analysis.category || 'Economia',
+          summary: summary,
+          category: category,
           source: item.source,
           source_url: item.link,
           published_at: new Date(item.pubDate).toISOString(),
         });
-
       } catch (error) {
         console.error('Error processing news item:', error);
-        // Adicionar mesmo sem processamento de IA
-        processedNews.push({
-          title: item.title,
-          summary: item.description.substring(0, 200),
-          category: 'Economia',
-          source: item.source,
-          source_url: item.link,
-          published_at: new Date(item.pubDate).toISOString(),
-        });
       }
     }
 
