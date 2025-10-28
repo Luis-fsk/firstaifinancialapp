@@ -70,42 +70,27 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    
-    // Verify authentication - allow authenticated users, cron jobs, or service role
+    // Check authorization
     const authHeader = req.headers.get("authorization");
     const cronSecret = req.headers.get("x-cron-secret");
-    const expectedSecret = Deno.env.get("CRON_SECRET_TOKEN");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const expectedCronSecret = Deno.env.get("CRON_SECRET_TOKEN");
     
-    // Check for different types of valid callers
-    const hasServiceRole = authHeader?.includes(supabaseServiceKey);
-    const hasValidCronSecret = cronSecret === expectedSecret && expectedSecret;
+    // Allow service role, cron secret, or authenticated users
+    const isServiceRole = authHeader?.includes(supabaseServiceKey || "");
+    const isValidCron = cronSecret && cronSecret === expectedCronSecret;
+    const isAuthenticatedUser = authHeader && authHeader.startsWith('Bearer eyJ');
     
-    // For regular users, verify they have a valid session
-    let isAuthenticatedUser = false;
-    if (!hasServiceRole && !hasValidCronSecret && authHeader) {
-      const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-        global: { headers: { Authorization: authHeader } }
-      });
-      
-      const { data: { user }, error } = await supabaseClient.auth.getUser();
-      isAuthenticatedUser = !!user && !error;
-    }
-    
-    if (!hasServiceRole && !hasValidCronSecret && !isAuthenticatedUser) {
+    if (!isServiceRole && !isValidCron && !isAuthenticatedUser) {
       console.error("Unauthorized fetch-news attempt");
       return new Response(
-        JSON.stringify({ error: "Unauthorized - authentication required" }),
+        JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log('Authorized caller - fetching news...');
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    console.log('Fetching news from RSS feeds...');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey!);
     
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!lovableApiKey) {
