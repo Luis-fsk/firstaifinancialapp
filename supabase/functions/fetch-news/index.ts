@@ -70,27 +70,9 @@ serve(async (req) => {
   }
 
   try {
-    // Check authorization
-    const authHeader = req.headers.get("authorization");
-    const cronSecret = req.headers.get("x-cron-secret");
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const expectedCronSecret = Deno.env.get("CRON_SECRET_TOKEN");
-    
-    // Allow service role, cron secret, or authenticated users
-    const isServiceRole = authHeader?.includes(supabaseServiceKey || "");
-    const isValidCron = cronSecret && cronSecret === expectedCronSecret;
-    const isAuthenticatedUser = authHeader && authHeader.startsWith('Bearer eyJ');
-    
-    if (!isServiceRole && !isValidCron && !isAuthenticatedUser) {
-      console.error("Unauthorized fetch-news attempt");
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey!);
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Usar NewsAPI gratuita do The Guardian
     const newsApiUrl = 'https://content.guardianapis.com/search?section=business&show-fields=headline,trailText,shortUrl&order-by=newest&page-size=10&api-key=test';
