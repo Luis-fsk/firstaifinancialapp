@@ -20,6 +20,22 @@ interface NewsArticle {
   ai_analysis?: string;
 }
 
+// Helper function to strip HTML from text
+const stripHtml = (html: string): string => {
+  // Remove HTML tags
+  let text = html.replace(/<[^>]*>/g, ' ');
+  // Decode common HTML entities
+  text = text.replace(/&nbsp;/g, ' ');
+  text = text.replace(/&amp;/g, '&');
+  text = text.replace(/&lt;/g, '<');
+  text = text.replace(/&gt;/g, '>');
+  text = text.replace(/&quot;/g, '"');
+  text = text.replace(/&#39;/g, "'");
+  // Remove extra whitespace
+  text = text.replace(/\s+/g, ' ').trim();
+  return text;
+};
+
 const formatMessage = (text: string): string => {
   // Replace bold text (**text**)
   let formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -418,7 +434,7 @@ const News = () => {
                   </CardHeader>
                   <CardContent>
                     <CardDescription className="mb-4">
-                      {article.summary}
+                      {stripHtml(article.summary)}
                     </CardDescription>
                     <div className="flex flex-col gap-1 mt-2">
                       <span className="text-xs text-muted-foreground">
@@ -495,7 +511,7 @@ const News = () => {
                           {article.title}
                         </h4>
                         <p className="text-muted-foreground text-sm mb-2">
-                          {article.summary}
+                          {stripHtml(article.summary)}
                         </p>
                         <div className="flex flex-col gap-1 mt-2">
                           <span className="text-xs text-muted-foreground">

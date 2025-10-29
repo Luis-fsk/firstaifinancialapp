@@ -22,6 +22,22 @@ interface RSSItem {
   pubDate: string;
 }
 
+// Helper function to strip HTML tags and decode entities
+function stripHtml(html: string): string {
+  // Remove HTML tags
+  let text = html.replace(/<[^>]*>/g, ' ');
+  // Decode common HTML entities
+  text = text.replace(/&nbsp;/g, ' ');
+  text = text.replace(/&amp;/g, '&');
+  text = text.replace(/&lt;/g, '<');
+  text = text.replace(/&gt;/g, '>');
+  text = text.replace(/&quot;/g, '"');
+  text = text.replace(/&#39;/g, "'");
+  // Remove extra whitespace
+  text = text.replace(/\s+/g, ' ').trim();
+  return text;
+}
+
 async function parseRSSFeed(text: string): Promise<RSSItem[]> {
   const items: RSSItem[] = [];
   
@@ -37,10 +53,13 @@ async function parseRSSFeed(text: string): Promise<RSSItem[]> {
     const pubDateMatch = itemContent.match(/<pubDate>(.*?)<\/pubDate>/);
     
     if (titleMatch && linkMatch) {
+      const rawDesc = (descMatch?.[1] || descMatch?.[2] || '').trim();
+      const cleanDesc = stripHtml(rawDesc);
+      
       items.push({
         title: (titleMatch[1] || titleMatch[2] || '').trim(),
         link: linkMatch[1].trim(),
-        description: (descMatch?.[1] || descMatch?.[2] || '').trim().substring(0, 500),
+        description: cleanDesc.substring(0, 500),
         pubDate: pubDateMatch?.[1] || new Date().toISOString(),
       });
     }
