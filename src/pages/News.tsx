@@ -420,12 +420,13 @@ const News = () => {
                     <CardDescription className="mb-4">
                       {article.summary}
                     </CardDescription>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-1 mt-2">
                       <span className="text-xs text-muted-foreground">
                         Fonte: {article.source}
                       </span>
-                      <div className="text-xs text-muted-foreground italic">
-                        💡 1 clique: análise IA • 2 cliques: fonte original
+                      <div className="text-xs text-muted-foreground/70">
+                        <span className="inline-block mr-1">💡</span>
+                        1 clique: análise IA • 2 cliques: fonte original
                       </div>
                     </div>
                     {expandedArticle === article.id && article.ai_analysis && (
@@ -496,12 +497,13 @@ const News = () => {
                         <p className="text-muted-foreground text-sm mb-2">
                           {article.summary}
                         </p>
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-1 mt-2">
                           <span className="text-xs text-muted-foreground">
                             Fonte: {article.source}
                           </span>
-                          <div className="text-xs text-muted-foreground italic">
-                            💡 1 clique: análise IA • 2 cliques: fonte original
+                          <div className="text-xs text-muted-foreground/70">
+                            <span className="inline-block mr-1">💡</span>
+                            1 clique: análise IA • 2 cliques: fonte original
                           </div>
                         </div>
                         {expandedArticle === article.id && article.ai_analysis && (
