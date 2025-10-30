@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -90,7 +90,6 @@ const News = () => {
   const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
   const [analyzingArticle, setAnalyzingArticle] = useState<string | null>(null);
   const [isUsingCache, setIsUsingCache] = useState(false);
-  const clickTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
   useEffect(() => {
     fetchNews();
@@ -270,23 +269,13 @@ const News = () => {
   };
 
   const handleArticleClick = (article: NewsArticle) => {
-    const articleId = article.id;
-    
-    // Clear existing timeout for this article
-    if (clickTimeouts.current[articleId]) {
-      clearTimeout(clickTimeouts.current[articleId]);
-      delete clickTimeouts.current[articleId];
-      
-      // This is a double click - redirect to source
-      window.open(article.source_url, '_blank');
-      return;
-    }
+    // Single click always triggers analysis
+    analyzeArticle(article);
+  };
 
-    // Set timeout for single click
-    clickTimeouts.current[articleId] = setTimeout(() => {
-      delete clickTimeouts.current[articleId];
-      analyzeArticle(article);
-    }, 300);
+  const handleOpenSource = (e: React.MouseEvent, article: NewsArticle) => {
+    e.stopPropagation(); // Prevent triggering the article click
+    window.open(article.source_url, '_blank');
   };
 
   const getTimeAgo = (publishedAt: string) => {
@@ -426,6 +415,15 @@ const News = () => {
                         {analyzingArticle === article.id && (
                           <Loader2 className="h-3 w-3 animate-spin" />
                         )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => handleOpenSource(e, article)}
+                          title="Abrir fonte original"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                     <CardTitle className="group-hover:text-primary transition-colors">
@@ -442,7 +440,7 @@ const News = () => {
                       </span>
                       <div className="text-xs text-muted-foreground/70">
                         <span className="inline-block mr-1">💡</span>
-                        1 clique: análise IA • 2 cliques: fonte original
+                        Clique no card para análise IA
                       </div>
                     </div>
                     {expandedArticle === article.id && article.ai_analysis && (
@@ -519,7 +517,7 @@ const News = () => {
                           </span>
                           <div className="text-xs text-muted-foreground/70">
                             <span className="inline-block mr-1">💡</span>
-                            1 clique: análise IA • 2 cliques: fonte original
+                            Clique no card para análise IA
                           </div>
                         </div>
                         {expandedArticle === article.id && article.ai_analysis && (
@@ -535,7 +533,13 @@ const News = () => {
                           </div>
                         )}
                       </div>
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={(e) => handleOpenSource(e, article)}
+                        title="Abrir fonte original"
+                      >
                         <ExternalLink className="h-4 w-4" />
                       </Button>
                     </div>
