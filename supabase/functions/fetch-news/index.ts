@@ -41,6 +41,11 @@ function stripHtml(html: string): string {
 async function parseRSSFeed(text: string): Promise<RSSItem[]> {
   const items: RSSItem[] = [];
   
+  // Helper to clean CDATA from URLs
+  const cleanUrl = (url: string): string => {
+    return url.replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim();
+  };
+  
   // Extract all <item> blocks
   const itemMatches = text.matchAll(/<item>([\s\S]*?)<\/item>/g);
   
@@ -55,10 +60,11 @@ async function parseRSSFeed(text: string): Promise<RSSItem[]> {
     if (titleMatch && linkMatch) {
       const rawDesc = (descMatch?.[1] || descMatch?.[2] || '').trim();
       const cleanDesc = stripHtml(rawDesc);
+      const rawLink = linkMatch[1].trim();
       
       items.push({
         title: (titleMatch[1] || titleMatch[2] || '').trim(),
-        link: linkMatch[1].trim(),
+        link: cleanUrl(rawLink),
         description: cleanDesc.substring(0, 500),
         pubDate: pubDateMatch?.[1] || new Date().toISOString(),
       });

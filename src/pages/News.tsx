@@ -275,7 +275,9 @@ const News = () => {
 
   const handleOpenSource = (e: React.MouseEvent, article: NewsArticle) => {
     e.stopPropagation(); // Prevent triggering the article click
-    window.open(article.source_url, '_blank');
+    // Clean CDATA tags from URL if present
+    const cleanUrl = article.source_url.replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1');
+    window.open(cleanUrl, '_blank');
   };
 
   const getTimeAgo = (publishedAt: string) => {
